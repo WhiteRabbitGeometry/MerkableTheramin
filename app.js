@@ -1,192 +1,284 @@
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-let CORE=null, mode="explore", audioCtx=null, eventTrain=[], liveEnergy=0;
-let transportToken=0, isLooping=false, loopNumber=0;
+let CORE=null,audioCtx=null,masterGain=null,muted=false,audioUnlocked=false;
+let eventTrain=[],savedTrains=[],transportToken=0,isLooping=false,performanceToken=0,performanceLooping=false;
+let liveEnergy=0,scanEnergy=0,lastScanEvent=0,lastScanClass="none";
+let captureActive=false,captureEvents=[],captureTrailA=[],captureTrailB=[];
+let referenceA={x:.38,y:.50},referenceB={x:.62,y:.50};
+let activeRef="A";
 
 async function loadCore(){
-  CORE=await fetch("data/core.json").then(r=>r.json());
-  $("#coreRevision").textContent=CORE.canonicalCore;
-  const c=CORE.core;
-  $("#metrics").innerHTML=[
-    ["A₄ sectors",c.A4Sectors],["C₃ bridges",c.C3Bridges],["C₅ gate frames",c.C5GateFrames],["A₄→C₅",c.A4ToC5MinimumDegrees+"°"]
-  ].map(x=>`<div class="metric"><small>${x[0]}</small><b>${x[1]}</b></div>`).join("");
+ CORE=await fetch("data/core.json").then(r=>r.json());
+ $("#coreRevision").textContent=CORE.canonicalCore;
+ const c=CORE.core;
+ $("#metrics").innerHTML=[["A₄ sectors",c.A4Sectors],["C₃ bridges",c.C3Bridges],["C₅ gate frames",c.C5GateFrames],["A₄→C₅",c.A4ToC5MinimumDegrees+"°"]]
+ .map(x=>`<div class="metric"><small>${x[0]}</small><b>${x[1]}</b></div>`).join("");
 }
+
 function log(msg){const d=document.createElement("div");d.className="logline";d.textContent=`${new Date().toLocaleTimeString()}  ${msg}`;$("#log").prepend(d)}
-function ensureAudio(){if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==="suspended")audioCtx.resume();}
-$("#audioEnable").addEventListener("click",()=>{ensureAudio();log("Audio enabled")});
+async function ensureAudio(){
+ if(!audioCtx){
+   audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+   masterGain=audioCtx.createGain();masterGain.connect(audioCtx.destination);masterGain.gain.value=muted?0:1;
+ }
+ if(audioCtx.state==="suspended")try{await audioCtx.resume()}catch(e){}
+ audioUnlocked=audioCtx.state==="running";
+ if(audioUnlocked)$("#audioHint").textContent=muted?"Sound unlocked — currently muted.":"Sound is live.";
+ return audioUnlocked;
+}
+["pointerdown","keydown","touchstart"].forEach(evt=>window.addEventListener(evt,()=>ensureAudio(),{once:true,capture:true}));
+$("#muteButton").addEventListener("click",async()=>{
+ await ensureAudio();muted=!muted;if(masterGain)masterGain.gain.setTargetAtTime(muted?0:1,audioCtx.currentTime,.01);
+ $("#muteButton").textContent=muted?"🔇 Muted":"🔊 Sound On";$("#muteButton").setAttribute("aria-pressed",String(muted));
+});
 
 function noiseBurst(t,dur=.025,gain=.25){
-  const len=Math.max(1,Math.floor(audioCtx.sampleRate*dur)),b=audioCtx.createBuffer(1,len,audioCtx.sampleRate),a=b.getChannelData(0);
-  for(let i=0;i<len;i++)a[i]=(Math.random()*2-1)*(1-i/len);
-  const s=audioCtx.createBufferSource(),g=audioCtx.createGain(),f=audioCtx.createBiquadFilter();
-  s.buffer=b;f.type="highpass";f.frequency.value=1600;g.gain.setValueAtTime(gain,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
-  s.connect(f).connect(g).connect(audioCtx.destination);s.start(t);
+ if(!audioCtx||!masterGain)return;
+ const len=Math.max(1,Math.floor(audioCtx.sampleRate*dur)),b=audioCtx.createBuffer(1,len,audioCtx.sampleRate),a=b.getChannelData(0);
+ for(let i=0;i<len;i++)a[i]=(Math.random()*2-1)*(1-i/len);
+ const s=audioCtx.createBufferSource(),g=audioCtx.createGain(),f=audioCtx.createBiquadFilter();s.buffer=b;f.type="highpass";f.frequency.value=1600;
+ g.gain.setValueAtTime(gain,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);s.connect(f).connect(g).connect(masterGain);s.start(t);
 }
-function tone(freq,t,dur=.35,gain=.16,type="sine"){
-  const o=audioCtx.createOscillator(),g=audioCtx.createGain();
-  o.type=type;o.frequency.setValueAtTime(freq,t);g.gain.setValueAtTime(gain,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
-  o.connect(g).connect(audioCtx.destination);o.start(t);o.stop(t+dur);
+function tone(freq,t,dur=.35,gain=.16,type="sine",detune=0){
+ if(!audioCtx||!masterGain)return;
+ const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.setValueAtTime(freq,t);o.detune.setValueAtTime(detune,t);
+ g.gain.setValueAtTime(gain,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g).connect(masterGain);o.start(t);o.stop(t+dur);
 }
 function click(t=audioCtx.currentTime){noiseBurst(t,.018,.18);tone(950,t,.035,.055,"square")}
-function ding(t=audioCtx.currentTime,pitch=659.25){tone(pitch,t,.7,.13);tone(pitch*2.01,t,.38,.035)}
-function bell(t=audioCtx.currentTime,root=261.63){
-  const partials=[[1,.19,2.9],[2.01,.085,2.4],[2.72,.07,2.1],[3.93,.052,1.65],[5.4,.035,1.3]];
-  partials.forEach(([r,g,d])=>tone(root*r,t,d,g));
-}
 function noBell(t=audioCtx.currentTime){tone(92,t,.18,.08,"triangle");noiseBurst(t,.05,.06)}
+
+const PENTA=[0,2,4,7,9];
+function pentatonicFromRef(ref,root=220){
+ const degree=Math.min(4,Math.max(0,Math.floor(ref.x*5)));
+ const octave=Math.min(2,Math.max(-1,Math.floor((1-ref.y)*4)-1));
+ const semis=PENTA[degree]+12*octave;
+ return {degree,octave,semis,freq:root*Math.pow(2,semis/12)};
+}
+function intervalLabel(a,b){
+ const d=((b.semis-a.semis)%12+12)%12;
+ const names={0:"unison",2:"major 2nd",3:"minor 3rd",4:"major 3rd",5:"fourth",7:"fifth",8:"minor 6th",9:"major 6th",10:"minor 7th"};
+ return names[d]||`${d} semitones`;
+}
+function relationState(scoreA,scoreB){
+ const diff=Math.abs(scoreA-scoreB);
+ const phase=Math.abs(Math.sin((aA-aB)/2));
+ const harmonic=(diff<.22 && phase<.58);
+ const detune=harmonic?0:Math.min(42,8+phase*34+diff*18);
+ return {harmonic,detune,phase,diff};
+}
+function dingPair(pA,pB,rel,t=audioCtx.currentTime){
+ tone(pA.freq,t,.72,.10,"sine",0);
+ tone(pB.freq,t,.72,.09,"sine",rel.harmonic?0:(referenceB.x>=referenceA.x?rel.detune:-rel.detune));
+ tone(pA.freq*2,t,.32,.025,"sine",0);
+}
+function bellChord(pA,pB,rel,t=audioCtx.currentTime){
+ const base=Math.min(pA.freq,pB.freq);
+ [[1,.18,2.8],[2,.065,2.2],[2.72,.05,1.9],[3.93,.04,1.5]].forEach(([r,g,d])=>tone(base*r,t,d,g,"sine",0));
+ tone(pA.freq,t,2.4,.09,"sine",0);tone(pB.freq,t,2.4,.08,"sine",rel.harmonic?0:(referenceB.x>=referenceA.x?rel.detune:-rel.detune));
+}
 
 function threshold(){return +$("#bellThreshold").value}
 function growth(){return +$("#growth").value}
-function contribution(type,ordinal){
-  if(type==="click") return .55*Math.pow(growth(),ordinal);
-  if(type==="ding") return .80*Math.pow(growth(),ordinal);
-  return 0;
+function contribution(type,ordinal){return type==="click"?.55*Math.pow(growth(),ordinal):type==="ding"?.80*Math.pow(growth(),ordinal):0}
+function durationFor(type){const beat=60/(+$("#tempo").value||108),rate=type==="click"?+$("#clickRate").value:type==="ding"?+$("#dingRate").value:+$("#noBellRate").value;return beat/Math.max(.01,rate)}
+function currentHarmony(){
+ const pA=pentatonicFromRef(referenceA),pB=pentatonicFromRef(referenceB);
+ const rel=relationState(lastScoreA||0,lastScoreB||0);
+ return {pA,pB,rel};
 }
-function durationFor(type){
-  const beat=60/(+$("#tempo").value||108);
-  const rate=type==="click" ? +$("#clickRate").value :
-             type==="ding" ? +$("#dingRate").value :
-             type==="nobell" ? +$("#noBellRate").value : 1;
-  return beat/Math.max(.01,rate);
+async function ringBell(source="closure"){
+ await ensureAudio();const {pA,pB,rel}=currentHarmony();bellChord(pA,pB,rel,audioCtx.currentTime);
+ $("#bellStatusPad").classList.add("active");setTimeout(()=>$("#bellStatusPad").classList.remove("active"),420);log(`BELL · ${source} · ${intervalLabel(pA,pB)}`);
 }
-function ringBell(source="closure"){
-  ensureAudio(); bell(audioCtx.currentTime,220);
-  $("#bellStatusPad").classList.add("active");
-  setTimeout(()=>$("#bellStatusPad").classList.remove("active"),420);
-  log(`BELL · ${source}`);
+async function soundEvent(type,source="manual",record=true){
+ await ensureAudio();
+ if(type==="click")click();
+ else if(type==="ding"){const {pA,pB,rel}=currentHarmony();dingPair(pA,pB,rel)}
+ else if(type==="nobell")noBell();
+ if(record){eventTrain.push(type);renderTrain()}
+ log(`${type.toUpperCase()} · ${source}`);
 }
-function addEvent(type){
-  ensureAudio();
-  if(type==="bell") return;
-  if(type==="click"){click();liveEnergy+=contribution("click",eventTrain.length)}
-  else if(type==="ding"){ding();liveEnergy+=contribution("ding",eventTrain.length)}
-  else if(type==="nobell"){noBell();liveEnergy=0}
-  eventTrain.push(type);
-  if(liveEnergy>=threshold()){ringBell("live threshold");liveEnergy=0}
-  renderTrain();log(type.toUpperCase()+` · live energy ${liveEnergy.toFixed(2)}`);
-}
-function renderTrain(){
-  $("#eventTrain").textContent=eventTrain.length
-    ? eventTrain.map(x=>x==="ding"?"· ding":x==="click"?"· click":"· NO BELL").join("  ")
-    : "— empty —";
+async function addEvent(type){
+ if(type==="bell")return;
+ if(type==="nobell"){liveEnergy=0;await soundEvent(type,"manual",true);return}
+ liveEnergy+=contribution(type,eventTrain.length);await soundEvent(type,"manual",true);
+ if(liveEnergy>=threshold()){await ringBell("live threshold");liveEnergy=0}
 }
 $$(".pad[data-sound]").forEach(b=>b.addEventListener("click",()=>addEvent(b.dataset.sound)));
-$("#clearSeq").addEventListener("click",()=>{stopTransport();eventTrain=[];liveEnergy=0;renderTrain()});
-$("#clearLog").addEventListener("click",()=>$("#log").innerHTML="");
+$$("[data-perf-sound]").forEach(b=>b.addEventListener("click",()=>{if($("#armPads").checked)soundEvent(b.dataset.perfSound,"performance pad",false)}));
 
-function stopTransport(){
-  transportToken++;
-  isLooping=false;
-  $("#loopSeq").classList.remove("active");
-  $("#loopStatus").classList.remove("running");
-  $("#loopStatus").textContent="Stopped";
+function renderTrain(){
+ const box=$("#eventTrain");box.innerHTML="";
+ if(!eventTrain.length){box.textContent="— empty —";return}
+ eventTrain.forEach((type,i)=>{
+   const chip=document.createElement("span");chip.className=`event-chip ${type}`;
+   chip.innerHTML=`<span>${type==="nobell"?"NO BELL":type}</span><button>←</button><button>→</button><button>×</button>`;
+   const [l,r,x]=chip.querySelectorAll("button");
+   l.onclick=()=>{if(i>0){[eventTrain[i-1],eventTrain[i]]=[eventTrain[i],eventTrain[i-1]];renderTrain()}};
+   r.onclick=()=>{if(i<eventTrain.length-1){[eventTrain[i+1],eventTrain[i]]=[eventTrain[i],eventTrain[i+1]];renderTrain()}};
+   x.onclick=()=>{eventTrain.splice(i,1);renderTrain()};
+   box.appendChild(chip);
+ });
 }
-$("#stopSeq").addEventListener("click",stopTransport);
-
-function sleep(ms,token){return new Promise(resolve=>setTimeout(()=>resolve(token===transportToken),Math.max(0,ms)))}
-
-async function playCycle(token,loopIndex=0){
-  if(!eventTrain.length){log("Sequence is empty");return false}
-  let cycleEnergy=0, ordinal=0;
-  $("#loopStatus").textContent=`Playing cycle ${loopIndex+1} · energy ${cycleEnergy.toFixed(2)}`;
-  for(let i=0;i<eventTrain.length;i++){
-    if(token!==transportToken)return false;
-    const type=eventTrain[i];
-    ensureAudio();
-    if(type==="click"){click();cycleEnergy+=contribution(type,ordinal++)}
-    else if(type==="ding"){ding();cycleEnergy+=contribution(type,ordinal++)}
-    else if(type==="nobell"){noBell();cycleEnergy=0;ordinal=0}
-    log(`PLAY ${type.toUpperCase()} · cycle ${loopIndex+1} · energy ${cycleEnergy.toFixed(2)}`);
-    if(cycleEnergy>=threshold()){
-      await sleep(70,token); if(token!==transportToken)return false;
-      ringBell(`cycle ${loopIndex+1} threshold`);
-      cycleEnergy=0;ordinal=0;
-    }
-    $("#loopStatus").textContent=`Playing cycle ${loopIndex+1} · energy ${cycleEnergy.toFixed(2)} / ${threshold().toFixed(1)}`;
-    const ok=await sleep(durationFor(type)*1000,token);
-    if(!ok)return false;
-  }
-  return true;
+function renderSaved(){
+ const box=$("#savedTrains");box.innerHTML="";
+ if(!savedTrains.length)box.innerHTML='<span class="caption">No saved trains this session.</span>';
+ savedTrains.forEach((tr,i)=>{
+  const row=document.createElement("div");row.className="saved-train";
+  row.innerHTML=`<code>${tr.name}: ${tr.events.map(x=>x==="nobell"?"NO BELL":x).join(" · ")}</code>
+  <div class="saved-actions"><button>Load</button><button>Duplicate</button><button>Delete</button></div>`;
+  const [load,dup,del]=row.querySelectorAll("button");
+  load.onclick=()=>{eventTrain=[...tr.events];renderTrain();log(`Loaded ${tr.name}`)};
+  dup.onclick=()=>{savedTrains.push({...tr,name:`Train ${savedTrains.length+1}`,events:[...tr.events]});renderSaved();renderPerformTracks()};
+  del.onclick=()=>{savedTrains.splice(i,1);renderSaved();renderPerformTracks()};
+  box.appendChild(row);
+ });
 }
+$("#saveSeq").onclick=()=>{if(!eventTrain.length)return;savedTrains.push({name:`Train ${savedTrains.length+1}`,events:[...eventTrain],muted:false,solo:false,source:"ocarina"});renderSaved();renderPerformTracks()};
+$("#clearSeq").onclick=()=>{stopTransport();eventTrain=[];liveEnergy=0;renderTrain()};
+$("#clearLog").onclick=()=>$("#log").innerHTML="";
 
-$("#playSeq").addEventListener("click",async()=>{
-  stopTransport(); ensureAudio();
-  const token=++transportToken;
-  $("#loopStatus").classList.add("running");
-  await playCycle(token,0);
-  if(token===transportToken){
-    $("#loopStatus").classList.remove("running");
-    $("#loopStatus").textContent="Finished";
-  }
-});
-$("#loopSeq").addEventListener("click",async()=>{
-  if(isLooping){stopTransport();return}
-  if(!eventTrain.length){log("Sequence is empty");return}
-  ensureAudio();isLooping=true;loopNumber=0;
-  const token=++transportToken;
-  $("#loopSeq").classList.add("active");$("#loopStatus").classList.add("running");
-  while(isLooping && token===transportToken){
-    const ok=await playCycle(token,loopNumber++);
-    if(!ok)break;
-  }
-});
-
-function bindOut(id,out,fmt=v=>v){
-  const el=$(id),o=$(out);
-  const update=()=>o.textContent=fmt(el.value);
-  el.addEventListener("input",update);update();
+function stopTransport(){transportToken++;isLooping=false;$("#loopSeq").classList.remove("active");$("#loopStatus").classList.remove("running");$("#loopStatus").textContent="Stopped"}
+$("#stopSeq").onclick=stopTransport;
+function sleep(ms,token,kind="transport"){return new Promise(resolve=>setTimeout(()=>resolve(kind==="transport"?token===transportToken:token===performanceToken),Math.max(0,ms)))}
+async function playTrain(events,token,cycle=0,kind="transport"){
+ let e=0,ord=0;if(!events.length)return false;
+ for(let i=0;i<events.length;i++){
+  const valid=kind==="transport"?token===transportToken:token===performanceToken;if(!valid)return false;
+  const type=events[i];await ensureAudio();
+  if(type==="click"){click();e+=contribution(type,ord++)}
+  else if(type==="ding"){const h=currentHarmony();dingPair(h.pA,h.pB,h.rel);e+=contribution(type,ord++)}
+  else{noBell();e=0;ord=0}
+  if(e>=threshold()){await sleep(65,token,kind);const still=kind==="transport"?token===transportToken:token===performanceToken;if(!still)return false;await ringBell(`${kind} threshold`);e=0;ord=0}
+  if(kind==="transport")$("#loopStatus").textContent=`Cycle ${cycle+1} · energy ${e.toFixed(2)} / ${threshold().toFixed(1)}`;
+  if(!(await sleep(durationFor(type)*1000,token,kind)))return false;
+ }
+ return true;
 }
-bindOut("#tempo","#tempoOut",v=>v);
-bindOut("#clickRate","#clickRateOut",v=>(+v).toFixed(2)+"×");
-bindOut("#dingRate","#dingRateOut",v=>(+v).toFixed(2)+"×");
-bindOut("#noBellRate","#noBellRateOut",v=>(+v).toFixed(2)+"×");
-bindOut("#bellThreshold","#bellThresholdOut",v=>(+v).toFixed(1));
-bindOut("#growth","#growthOut",v=>(+v).toFixed(2)+"×");
+$("#playSeq").onclick=async()=>{stopTransport();const token=++transportToken;$("#loopStatus").classList.add("running");await playTrain(eventTrain,token,0);if(token===transportToken){$("#loopStatus").classList.remove("running");$("#loopStatus").textContent="Finished"}};
+$("#loopSeq").onclick=async()=>{if(isLooping){stopTransport();return}if(!eventTrain.length)return;isLooping=true;let cycle=0;const token=++transportToken;$("#loopSeq").classList.add("active");$("#loopStatus").classList.add("running");while(isLooping&&token===transportToken)if(!(await playTrain(eventTrain,token,cycle++)))break};
 
-$$(".mode").forEach(b=>b.addEventListener("click",()=>{mode=b.dataset.mode;$$(".mode").forEach(x=>x.classList.toggle("active",x===b));log(`Mode: ${mode}`)}));
-$$(".tab").forEach(b=>b.addEventListener("click",()=>{const v=b.dataset.view;$$(".tab").forEach(x=>x.classList.toggle("active",x===b));$$(".panel").forEach(x=>x.classList.remove("active"));$("#"+v+"View").classList.add("active")}));
+function bindOut(id,out,fmt=v=>v){const el=$(id),o=$(out),update=()=>o.textContent=fmt(el.value);el.addEventListener("input",update);update()}
+bindOut("#tempo","#tempoOut",v=>v);bindOut("#clickRate","#clickRateOut",v=>(+v).toFixed(2)+"×");bindOut("#dingRate","#dingRateOut",v=>(+v).toFixed(2)+"×");bindOut("#noBellRate","#noBellRateOut",v=>(+v).toFixed(2)+"×");bindOut("#bellThreshold","#bellThresholdOut",v=>(+v).toFixed(1));bindOut("#growth","#growthOut",v=>(+v).toFixed(2)+"×");
 
-// 2D incidence model
-function drawIncidence(){
- const svg=$("#incidenceSvg"), cx=450,cy=310,R=220;
- const pts=[...Array(5)].map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/5;return [cx+R*Math.cos(a),cy+R*Math.sin(a)]});
+$$(".tab").forEach(b=>b.onclick=()=>{const v=b.dataset.view;$$(".tab").forEach(x=>x.classList.toggle("active",x===b));$$(".panel").forEach(x=>x.classList.remove("active"));$("#"+v+"View").classList.add("active");if(v==="perform"){renderPerformTracks();drawPerformIncidence()}});
+
+// incidence
+function incidenceMarkup(){
+ const cx=450,cy=310,R=220,pts=[...Array(5)].map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/5;return[cx+R*Math.cos(a),cy+R*Math.sin(a)]});
  const edges=[];for(let i=0;i<5;i++)for(let j=i+1;j<5;j++)edges.push([i,j]);
- $("#c3Edges").innerHTML=edges.map(([i,j])=>`<line x1="${pts[i][0]}" y1="${pts[i][1]}" x2="${pts[j][0]}" y2="${pts[j][1]}" stroke="#41414e" stroke-width="2"/>`).join("");
- $("#a4Nodes").innerHTML=pts.map((p,i)=>`<g class="a4-node" data-i="${i}"><circle cx="${p[0]}" cy="${p[1]}" r="38" fill="#111117" stroke="#d7b45c" stroke-width="3"/><text x="${p[0]}" y="${p[1]+6}" text-anchor="middle" fill="#f2f0ea">A₄ ${i}</text></g>`).join("");
- const c5=[...Array(6)].map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/6;return [cx+125*Math.cos(a),cy+125*Math.sin(a)]});
- $("#c5Nodes").innerHTML=c5.map((p,i)=>`<g class="c5-node" data-i="${i}"><circle cx="${p[0]}" cy="${p[1]}" r="22" fill="#171720" stroke="#8ba7ff" stroke-width="2"/><text x="${p[0]}" y="${p[1]+5}" text-anchor="middle" fill="#f2f0ea" font-size="12">C₅</text></g>`).join("");
- $("#bridgeSocket").innerHTML=`<circle cx="${cx}" cy="${cy}" r="76" fill="rgba(215,180,92,.05)" stroke="#c26d68" stroke-width="2" stroke-dasharray="8 7"/><text x="${cx}" y="${cy-8}" text-anchor="middle" fill="#f2f0ea">C₂ bridge</text><text x="${cx}" y="${cy+17}" text-anchor="middle" fill="#c26d68" font-size="13">NO BELL</text>`;
- $$(".a4-node").forEach(n=>n.addEventListener("click",()=>{addEvent("click");log(`A₄ sector ${n.dataset.i} selected`)}));
- $$(".c5-node").forEach(n=>n.addEventListener("click",()=>{addEvent("ding");log(`C₅ gate frame ${n.dataset.i} excited`)}));
+ const c5=[...Array(6)].map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/6;return[cx+125*Math.cos(a),cy+125*Math.sin(a)]});
+ return `${edges.map(([i,j])=>`<line x1="${pts[i][0]}" y1="${pts[i][1]}" x2="${pts[j][0]}" y2="${pts[j][1]}" stroke="#41414e" stroke-width="2"/>`).join("")}
+ ${pts.map((p,i)=>`<g class="inc-a4" data-i="${i}"><circle cx="${p[0]}" cy="${p[1]}" r="38" fill="#111117" stroke="#d7b45c" stroke-width="3"/><text x="${p[0]}" y="${p[1]+6}" text-anchor="middle" fill="#f2f0ea">A₄ ${i}</text></g>`).join("")}
+ ${c5.map((p,i)=>`<g class="inc-c5" data-i="${i}"><circle cx="${p[0]}" cy="${p[1]}" r="22" fill="#171720" stroke="#8ba7ff" stroke-width="2"/><text x="${p[0]}" y="${p[1]+5}" text-anchor="middle" fill="#f2f0ea" font-size="12">C₅</text></g>`).join("")}
+ <circle cx="${cx}" cy="${cy}" r="76" fill="rgba(215,180,92,.05)" stroke="#c26d68" stroke-width="2" stroke-dasharray="8 7"/><text x="${cx}" y="${cy-8}" text-anchor="middle" fill="#f2f0ea">C₂ bridge</text><text x="${cx}" y="${cy+17}" text-anchor="middle" fill="#c26d68" font-size="13">NO BELL</text>`;
 }
-drawIncidence();
+function wireIncidence(svg,perform=false){
+ svg.querySelectorAll(".inc-a4").forEach(n=>n.onclick=()=>{if(!perform||$("#armIncidence").checked)soundEvent("click",`A₄ sector ${n.dataset.i}`,!perform)});
+ svg.querySelectorAll(".inc-c5").forEach(n=>n.onclick=()=>{if(!perform||$("#armIncidence").checked)soundEvent("ding",`C₅ gate ${n.dataset.i}`,!perform)});
+}
+$("#incidenceSvg").innerHTML=incidenceMarkup();wireIncidence($("#incidenceSvg"),false);
+function drawPerformIncidence(){$("#performIncidenceSvg").innerHTML=incidenceMarkup();wireIncidence($("#performIncidenceSvg"),true)}
 
-// simple 3D canvas dodecahedron
-const canvas=$("#geoCanvas"),ctx=canvas.getContext("2d"),phi=(1+Math.sqrt(5))/2,inv=1/phi;
-const V=[];[-1,1].forEach(a=>[-1,1].forEach(b=>[-1,1].forEach(c=>V.push([a,b,c]))));
-[-1,1].forEach(a=>[-1,1].forEach(b=>{V.push([0,a*inv,b*phi],[a*inv,b*phi,0],[a*phi,0,b*inv])}));
+// geometry
+const phi=(1+Math.sqrt(5))/2,inv=1/phi,V=[];[-1,1].forEach(a=>[-1,1].forEach(b=>[-1,1].forEach(c=>V.push([a,b,c]))));[-1,1].forEach(a=>[-1,1].forEach(b=>{V.push([0,a*inv,b*phi],[a*inv,b*phi,0],[a*phi,0,b*inv])}));
 let minD=Infinity;for(let i=0;i<V.length;i++)for(let j=i+1;j<V.length;j++){const d=Math.hypot(...V[i].map((x,k)=>x-V[j][k]));if(d>1e-6)minD=Math.min(minD,d)}
 const E=[];for(let i=0;i<V.length;i++)for(let j=i+1;j<V.length;j++){const d=Math.hypot(...V[i].map((x,k)=>x-V[j][k]));if(Math.abs(d-minD)<1e-5)E.push([i,j])}
-let aA=0,aB=0,last=performance.now(),phase=0;
-function proj(v,a,mirror,scale,rip){
- let [x,y,z]=v;if(mirror)x=-x;const ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(.53),sb=Math.sin(.53);
- let X=x*ca-z*sa,Z=x*sa+z*ca,Y=y*cb-Z*sb;Z=y*sb+Z*cb;
- const rr=1+rip*Math.sin(phase+Math.atan2(y,x)*5);X*=rr;Y*=rr;Z*=rr;
- const f=1/(4.6-Z*.34);return [canvas.width/2+X*scale*f,canvas.height/2-Y*scale*f,Z]
+let aA=0,aB=0,last=performance.now(),phase=0,lastScoreA=0,lastScoreB=0;
+function proj(v,a,mirror,w,h,scale,rip){let[x,y,z]=v;if(mirror)x=-x;const ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(.53),sb=Math.sin(.53);let X=x*ca-z*sa,Z=x*sa+z*ca,Y=y*cb-Z*sb;Z=y*sb+Z*cb;const rr=1+rip*Math.sin(phase+Math.atan2(y,x)*5);X*=rr;Y*=rr;Z*=rr;const f=1/(4.6-Z*.34);return[w/2+X*scale*f,h/2-Y*scale*f,Z]}
+function drawGeometry(canvas,ctx,performance=false){
+ const rip=+$("#ripple").value,w=canvas.width,h=canvas.height;ctx.clearRect(0,0,w,h);
+ const P_B=V.map(v=>proj(v,aB,true,w,h,760,rip)),P_A=V.map(v=>proj(v,aA,false,w,h,700,rip));
+ [[P_B,"#8ba7ff",.38,1.3],[P_A,"#d7b45c",.9,2.2]].forEach(([P,color,alpha,width])=>{
+ E.map(([i,j])=>[i,j,(P[i][2]+P[j][2])/2]).sort((a,b)=>a[2]-b[2]).forEach(([i,j])=>{ctx.beginPath();ctx.moveTo(P[i][0],P[i][1]);ctx.lineTo(P[j][0],P[j][1]);ctx.strokeStyle=color;ctx.globalAlpha=alpha;ctx.lineWidth=width;ctx.stroke()});ctx.globalAlpha=1;
+ });
+ if($("#showAxes").checked){ctx.save();ctx.translate(w/2,h/2);ctx.strokeStyle="rgba(242,240,234,.18)";for(let i=0;i<6;i++){const a=i*Math.PI/3;ctx.beginPath();ctx.moveTo(-245*Math.cos(a),-245*Math.sin(a));ctx.lineTo(245*Math.cos(a),245*Math.sin(a));ctx.stroke()}ctx.restore()}
+ function drawRef(ref,color,label,trail){
+   const x=ref.x*w,y=ref.y*h;
+   if(performance&&$("#showTrails").checked&&trail.length>1){ctx.beginPath();trail.forEach((p,i)=>i?ctx.lineTo(p.x*w,p.y*h):ctx.moveTo(p.x*w,p.y*h));ctx.strokeStyle=color;ctx.globalAlpha=.24;ctx.lineWidth=2;ctx.stroke();ctx.globalAlpha=1}
+   ctx.beginPath();ctx.arc(x,y,12,0,Math.PI*2);ctx.fillStyle="rgba(9,9,12,.75)";ctx.fill();ctx.strokeStyle=color;ctx.lineWidth=3;ctx.stroke();ctx.fillStyle=color;ctx.font="14px ui-monospace";ctx.fillText(label,x+16,y-12);
+ }
+ drawRef(referenceA,"#d7b45c","A",captureTrailA);drawRef(referenceB,"#8ba7ff","B",captureTrailB);
+ const nearest=(P,ref)=>{const rx=ref.x*w,ry=ref.y*h;let n=Infinity;P.forEach(p=>n=Math.min(n,Math.hypot(p[0]-rx,p[1]-ry)));return Math.max(0,1-n/115)};
+ return {scoreA:nearest(P_A,referenceA),scoreB:nearest(P_B,referenceB)};
 }
-function drawShell(angle,mirror,color,alpha,scale){
- const rip=+$("#ripple").value,P=V.map(v=>proj(v,angle,mirror,scale,rip));
- E.map(([i,j])=>[i,j,(P[i][2]+P[j][2])/2]).sort((a,b)=>a[2]-b[2]).forEach(([i,j])=>{ctx.beginPath();ctx.moveTo(P[i][0],P[i][1]);ctx.lineTo(P[j][0],P[j][1]);ctx.strokeStyle=color;ctx.globalAlpha=alpha;ctx.lineWidth=mirror?1.3:2.2;ctx.stroke()});ctx.globalAlpha=1;
+function updateReadouts(){
+ const pA=pentatonicFromRef(referenceA),pB=pentatonicFromRef(referenceB),rel=relationState(lastScoreA,lastScoreB);
+ const iv=intervalLabel(pA,pB),rs=rel.harmonic?"harmonic":"dissonant";
+ $("#refAReadout").textContent=`${referenceA.x.toFixed(2)}, ${referenceA.y.toFixed(2)}`;$("#refBReadout").textContent=`${referenceB.x.toFixed(2)}, ${referenceB.y.toFixed(2)}`;
+ $("#intervalReadout").textContent=iv;$("#relationReadout").textContent=rs;$("#performInterval").textContent=iv;$("#performRelation").textContent=rs;
 }
+function setReference(canvas,e){
+ const r=canvas.getBoundingClientRect(),nx=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),ny=Math.max(0,Math.min(1,(e.clientY-r.top)/r.height));
+ const dA=Math.hypot(nx-referenceA.x,ny-referenceA.y),dB=Math.hypot(nx-referenceB.x,ny-referenceB.y);
+ if(e.type==="pointerdown")activeRef=dA<=dB?"A":"B";
+ if(activeRef==="A"){referenceA={x:nx,y:ny};if(captureActive)captureTrailA.push({...referenceA})}
+ else{referenceB={x:nx,y:ny};if(captureActive)captureTrailB.push({...referenceB})}
+ updateReadouts();
+}
+[$("#geoCanvas"),$("#performGeoCanvas")].forEach(c=>{let drag=false;c.onpointerdown=e=>{drag=true;c.setPointerCapture(e.pointerId);setReference(c,e)};c.onpointermove=e=>{if(drag)setReference(c,e)};c.onpointerup=()=>drag=false});
+$("#resetReferences").onclick=()=>{referenceA={x:.38,y:.5};referenceB={x:.62,y:.5};updateReadouts()};
+
+async function maybeScanEvent(now,performanceVisible){
+ if(!audioUnlocked||muted)return;
+ const rate=+$("#scanRate").value;
+ if(now-lastScanEvent<rate)return;
+ const combined=(lastScoreA+lastScoreB)/2,rel=relationState(lastScoreA,lastScoreB);
+ let cls=combined>.81?"ding":combined>.60?"click":"none";
+ if(cls==="none"){lastScanClass="none";return}
+ if(cls!==lastScanClass||now-lastScanEvent>rate*2){
+   lastScanEvent=now;lastScanClass=cls;
+   const inGeometry=$("#geometryView").classList.contains("active");
+   const inPerform=$("#performView").classList.contains("active")&&$("#armGeometry").checked;
+   if(!(inGeometry||inPerform))return;
+   if(cls==="click"){click();scanEnergy+=.55}
+   else{const h=currentHarmony();dingPair(h.pA,h.pB,h.rel);scanEnergy+=.85}
+   if(inPerform&&captureActive){captureEvents.push(cls);renderCapturePath()}
+   if(scanEnergy>=threshold()){await ringBell("geometry closure");scanEnergy=0;if(inPerform&&captureActive){captureEvents.push("bell");renderCapturePath()}}
+ }
+}
+function renderCapturePath(){
+ if(!$("#showEventPath").checked){$("#capturedEventPath").textContent="";return}
+ $("#capturedEventPath").textContent=captureEvents.length?captureEvents.map(x=>x==="bell"?"BELL":x.toUpperCase()).join(" · "):"— no captured events yet —";
+}
+
 function frame(now){
  const dt=(now-last)/1000;last=now;if($("#autoScan").checked){aA+=dt*+$("#speedA").value;aB+=dt*+$("#speedB").value;phase+=dt*.8}
- ctx.clearRect(0,0,canvas.width,canvas.height);drawShell(aB,true,"#8ba7ff",.38,760);drawShell(aA,false,"#d7b45c",.9,700);
- if($("#showAxes").checked){ctx.save();ctx.translate(canvas.width/2,canvas.height/2);ctx.strokeStyle="rgba(242,240,234,.18)";for(let i=0;i<6;i++){const a=i*Math.PI/3;ctx.beginPath();ctx.moveTo(-245*Math.cos(a),-245*Math.sin(a));ctx.lineTo(245*Math.cos(a),245*Math.sin(a));ctx.stroke()}ctx.restore()}
- requestAnimationFrame(frame)
+ const g=drawGeometry($("#geoCanvas"),$("#geoCanvas").getContext("2d"),false);
+ const p=drawGeometry($("#performGeoCanvas"),$("#performGeoCanvas").getContext("2d"),true);
+ lastScoreA=g.scoreA;lastScoreB=g.scoreB;updateReadouts();maybeScanEvent(now);requestAnimationFrame(frame)
 }
 requestAnimationFrame(frame);
 
-// Geometry sampling still records Click/Ding into the playable sequence.
-canvas.addEventListener("click",()=>addEvent(Math.random()>.72?"ding":"click"));
+// capture
+$("#captureReference").onclick=()=>{captureActive=true;captureEvents=[];captureTrailA=[{...referenceA}];captureTrailB=[{...referenceB}];$("#captureStatus").textContent="recording";$("#captureReference").disabled=true;$("#stopCapture").disabled=false;renderCapturePath();log("Reference capture started")};
+$("#stopCapture").onclick=()=>{if(!captureActive)return;captureActive=false;$("#captureStatus").textContent="off";$("#captureReference").disabled=false;$("#stopCapture").disabled=true;
+ const musicalEvents=captureEvents.filter(x=>x!=="bell");
+ if(musicalEvents.length){savedTrains.push({name:`Ref ${savedTrains.length+1}`,events:musicalEvents,muted:false,solo:false,source:"reference",trailA:[...captureTrailA],trailB:[...captureTrailB]});renderSaved();renderPerformTracks();log("Captured reference became a saved train")}
+};
 
-renderTrain();
-loadCore();
+// performance tracks
+function renderPerformTracks(){
+ const box=$("#performTracks");box.innerHTML="";
+ if(!savedTrains.length){box.innerHTML='<span class="caption">Save Ocarina trains or capture a reference phrase to create tracks.</span>';return}
+ savedTrains.forEach((tr,i)=>{
+   const row=document.createElement("div");row.className=`track-row ${tr.muted?"muted":""} ${tr.solo?"solo":""}`;
+   row.innerHTML=`<div><strong>${tr.name}</strong> <small>${tr.source||"ocarina"}</small><br><code>${tr.events.join(" · ")}</code></div>
+   <div class="track-controls"><button data-action="mute">${tr.muted?"Unmute":"Mute"}</button><button data-action="solo">${tr.solo?"Unsolo":"Solo"}</button><button data-action="load">Load</button><button data-action="delete">Delete</button></div>`;
+   row.querySelector('[data-action="mute"]').onclick=()=>{tr.muted=!tr.muted;renderPerformTracks()};
+   row.querySelector('[data-action="solo"]').onclick=()=>{tr.solo=!tr.solo;renderPerformTracks()};
+   row.querySelector('[data-action="load"]').onclick=()=>{eventTrain=[...tr.events];renderTrain()};
+   row.querySelector('[data-action="delete"]').onclick=()=>{savedTrains.splice(i,1);renderSaved();renderPerformTracks()};
+   box.appendChild(row);
+ });
+}
+function audibleTracks(){const solo=savedTrains.filter(t=>t.solo&&!t.muted);return solo.length?solo:savedTrains.filter(t=>!t.muted)}
+function stopPerformance(){performanceToken++;performanceLooping=false;$("#loopSelected").classList.remove("active")}
+$("#stopPerformance").onclick=stopPerformance;
+async function playStack(loop=false){
+ const tracks=audibleTracks();if(!tracks.length)return;stopPerformance();performanceLooping=loop;const token=++performanceToken;if(loop)$("#loopSelected").classList.add("active");
+ do{await Promise.all(tracks.map((tr,i)=>new Promise(res=>setTimeout(()=>playTrain(tr.events,token,0,"performance").then(res),i*35))))}while(loop&&performanceLooping&&token===performanceToken)
+}
+$("#playSelected").onclick=()=>playStack(false);
+$("#loopSelected").onclick=()=>{if(performanceLooping)stopPerformance();else playStack(true)};
+
+renderTrain();renderSaved();drawPerformIncidence();updateReadouts();loadCore();
