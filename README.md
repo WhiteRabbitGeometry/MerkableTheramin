@@ -1,94 +1,57 @@
-# Atlas Lattice Ocarina v0.2
+# Musical Atlas Relational Lattice — v1.0
 
-A static, playable display model for the Atlas Lattice.
+Official first public working-model release of the playable Musical Atlas Relational Lattice.
 
-## What it is
+## Naming hierarchy
 
-- **2D incidence model** — five A4 sectors, ten C3 relations, six C5 gate frames, and the unresolved C2 attachment socket.
-- **3D relational geometry** — paired mirrored dodecahedral carriers that counter-rotate and support ripple deformation.
-- **Ocarina / audio instrument** — synthesized Click, Ding, Bell, and No-Bell events using the Web Audio API.
-- **Explore mode** — the Bell is gated by accumulated integration.
-- **Perform mode** — direct musical control.
+- **Musical Atlas Relational Lattice** — core infrastructure.
+- **Merkabarina** — the function produced by the relative movement of the relational structures.
+- **Atlas Relational Ocarina** — the instrument created from persistent observation of Merkabarina events.
+- **Merkable Theramin** — the mixer/performance function that combines live geometry, incidence, event trains, and reference-point performance.
+- **Merk** — planned persistent musical stem / saved relational phrase.
+- **re-Merk** — a Merk reused, transformed, layered, or remixed.
+- **Re-Merkable Theramin** — planned future persistent/import-export version.
 
-The current frozen mathematical source is:
+`Theramin` with an **A** is intentionally the internal-field instrument term. Conventional `Theremin` with an **E** remains the external-field instrument.
 
-**Atlas Lattice — Draft 2, Revision 12 (Canonical Core Closure)**
+## v1.0 views
 
-The display intentionally distinguishes the frozen core from project-defined operators. The rejected arithmetic-to-geometric bridge remains visibly **NO BELL**.
+1. **2D Incidence**
+2. **3D Geometry**
+3. **Ocarina**
+4. **Perform**
 
-## GitHub Pages deployment
+The standalone exploratory layers are solo surfaces. Perform is the explicit mixer.
 
-1. Create a new repository, e.g. `atlas-lattice-ocarina`.
-2. Upload all files in this folder to the repository root.
-3. Commit / push.
-4. In GitHub: **Settings → Pages**.
-5. Under **Build and deployment**, choose **Deploy from a branch**.
-6. Select your main branch and `/ (root)`.
-7. Save.
+## Musical behavior
 
-GitHub will provide the Pages URL after deployment.
+- Two movable reference points select pentatonic degrees and octaves.
+- Relative geometry contributes harmonic lock or controlled dissonance.
+- Geometry generates Click/Ding observations automatically.
+- Bell is never directly programmable; it emerges only when integration crosses threshold.
+- Ocarina event trains may be reordered, looped, and saved for the current session.
+- Perform mixes saved trains, live pads, incidence, and live geometry references.
+- Reference-generated phrases may be captured as event trains.
+- Captured Bell events are displayed but are not stored as direct Bell instructions.
 
-## File layout
+## v1.0 reliability changes
 
-```text
-atlas-lattice-ocarina/
-├── index.html
-├── styles.css
-├── app.js
-├── .nojekyll
-├── README.md
-└── data/
-    └── core.json
-```
+v0.4 exposed a deployment/cache failure mode: a browser could temporarily receive the new `index.html` while still using an older cached `app.js`, causing the old script to fail on controls that no longer existed.
 
-## Audio
+v1.0 therefore adds:
 
-Browsers require a user gesture before audio can begin. Press **Enable Audio** once.
+- cache-busted `styles.css?v=1.0.0` and `app.js?v=1.0.0`;
+- no-store loading of `core.json?v=1.0.0`;
+- a fail-safe tab router embedded in `index.html`;
+- defensive optional-control binding;
+- runtime diagnostics that do not disable basic navigation.
 
-The sounds are synthesized in-browser; there are no external audio files.
+The display should therefore remain navigable even if an individual audio/geometry module reports an error.
 
-- Click = local match / local integration
-- Ding = partial integration / excitation
-- Bell = closure
-- No Bell = failed or non-closing registration
+## Deployment
 
-## Design rule
+Upload the full contents of this directory to the GitHub Pages repository root in one pull request and merge.
 
-**Sound reflects state. Sound does not determine truth.**
+After GitHub Pages deploys, do one hard refresh on devices that previously loaded v0.4.
 
-The musical instrument may be playful; the mathematical status labels should remain epistemically strict.
-
-## Next development steps
-
-- Map the six C5 gate frames to exact geometric fivefold axes.
-- Replace the schematic mirror motion with the frozen SO(3)/A5 scanner law.
-- Add a real event-train sequencer and loop controls.
-- Add Bird Song as a generative/resonant layer, separate from Bell.
-- Add Atlas routing / sonar only as operational layers, never as retrospective proof of the core.
-
-
-## v0.2 — Loop / modulation engine
-
-The Ocarina now treats a composition as an ordered event train of:
-
-- Click
-- Ding
-- No Bell
-
-**Bell is not programmable.** During playback, Click and Ding contribute integration energy. When the live threshold is crossed, the Bell emerges.
-
-New controls:
-
-- Play once
-- Loop / Stop
-- Independent Click rate
-- Independent Ding rate
-- Independent No-Bell rate
-- Live Bell threshold
-- Live integration-growth factor
-
-The modulation controls remain live while a loop is running. The sequence order stays fixed, while each event type can stretch or compress its own interval.
-
-This keeps the epistemic rule intact:
-
-> You can compose the evidence. You cannot compose the conclusion.
+No build step or external libraries are required.
