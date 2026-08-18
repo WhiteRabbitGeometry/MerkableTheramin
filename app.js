@@ -1,13 +1,13 @@
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const on=(selector,event,handler)=>{
   const el=$(selector);
-  if(!el){ console.warn(`[MARL v1.5] missing optional control ${selector}`); return null; }
+  if(!el){ console.warn(`[MARL v1.6] missing optional control ${selector}`); return null; }
   el.addEventListener(event,handler);
   return el;
 };
 const setText=(selector,text)=>{ const el=$(selector); if(el) el.textContent=text; };
 window.addEventListener("error",e=>{
-  console.error("[MARL v1.5 runtime]", e.error || e.message);
+  console.error("[MARL v1.6 runtime]", e.error || e.message);
   const hint=$("#audioHint");
   if(hint) hint.textContent="A module reported an error; basic view navigation remains available.";
 });
@@ -17,13 +17,13 @@ let liveEnergy=0,scanEnergy=0,lastScanEvent=0,lastScanClass="none";
 let captureActive=false,captureEvents=[],captureTrailA=[],captureTrailB=[];
 let referenceA={x:.38,y:.50},referenceB={x:.62,y:.50};
 let referencePresets=[];
-const REFERENCE_SESSION_KEY="marl.referencePresets.v1.5";
+const REFERENCE_SESSION_KEY="marl.referencePresets.v1.6";
 let activeRef="A";
 let voiceAOn=true,voiceBOn=true,geometryBusOn=true,mercBusOn=true,masterAudible=true;
 
 
 function loadCore(){
-  CORE={version:"1.5.0",canonicalCore:"ROCK · PETRIFIED"};
+  CORE={version:"1.6.0",canonicalCore:"ROCK · PETRIFIED"};
   const rev=$("#coreRevision"); if(rev) rev.textContent=CORE.canonicalCore;
 }
 function flashEvent(type){
@@ -179,21 +179,38 @@ function renderTrain(){
    box.appendChild(chip);
  });
 }
+
+function renameMercAt(index,kind="merc"){
+  const tr=savedTrains[index]; if(!tr)return;
+  const current=kind==="path"?(tr.pathName||`${tr.name} Path`):tr.name;
+  const next=prompt(kind==="path"?"Rename captured path:":"Rename Merc:",current);
+  if(next===null)return;
+  const cleaned=next.trim(); if(!cleaned)return;
+  if(kind==="path")tr.pathName=cleaned; else tr.name=cleaned;
+  renderSaved();renderPerformTracks();
+}
+
 function renderSaved(){
  const box=$("#savedTrains");box.innerHTML="";
- if(!savedTrains.length)box.innerHTML='<span class="caption">No saved trains this session.</span>';
+ if(!savedTrains.length){box.innerHTML='<span class="caption">No saved Mercs this session.</span>';return}
  savedTrains.forEach((tr,i)=>{
+  if(!tr.pathName && (tr.trailA||tr.trailB))tr.pathName=`${tr.name} Path`;
   const row=document.createElement("div");row.className="saved-train";
-  row.innerHTML=`<code>${tr.name}: ${tr.events.map(x=>x==="nobell"?"NO BELL":x).join(" · ")}</code>
+  const ev=tr.events.map(x=>x==="nobell"?"NO BELL":x.toUpperCase()).join(" · ");
+  const path=(tr.trailA||tr.trailB)?`<div><small>Path: <span class="path-name" data-rename-path="${i}">${tr.pathName}</span></small></div>`:"";
+  row.innerHTML=`<div><strong class="merc-name" data-rename-merc="${i}">${tr.name}</strong><br><code>${ev}</code>${path}</div>
   <div class="saved-actions"><button>Load</button><button>Duplicate</button><button>Delete</button></div>`;
-  const [load,dup,del]=row.querySelectorAll("button");
+  const [load,dup,del]=row.querySelectorAll(".saved-actions button");
   load.onclick=()=>{eventTrain=[...tr.events];renderTrain();log(`Loaded ${tr.name}`)};
-  dup.onclick=()=>{savedTrains.push({...tr,name:`Train ${savedTrains.length+1}`,events:[...tr.events]});renderSaved();renderPerformTracks()};
+  dup.onclick=()=>{savedTrains.push({...tr,name:`Merc ${savedTrains.length+1}`,pathName:tr.pathName?`${tr.pathName} Copy`:undefined,events:[...tr.events],trailA:tr.trailA?cloneData(tr.trailA):null,trailB:tr.trailB?cloneData(tr.trailB):null});renderSaved();renderPerformTracks()};
   del.onclick=()=>{savedTrains.splice(i,1);renderSaved();renderPerformTracks()};
+  row.querySelector(`[data-rename-merc="${i}"]`).ondblclick=()=>renameMercAt(i,"merc");
+  const pn=row.querySelector(`[data-rename-path="${i}"]`);if(pn)pn.ondblclick=()=>renameMercAt(i,"path");
   box.appendChild(row);
  });
 }
-$("#saveSeq").onclick=()=>{if(!eventTrain.length)return;savedTrains.push({name:`Train ${savedTrains.length+1}`,events:[...eventTrain],muted:false,solo:false,source:"ocarina"});renderSaved();renderPerformTracks()};
+
+$("#saveSeq").onclick=()=>{if(!eventTrain.length)return;savedTrains.push({name:`Merc ${savedTrains.length+1}`,events:[...eventTrain],muted:false,solo:false,source:"ocarina"});renderSaved();renderPerformTracks()};
 $("#clearSeq").onclick=()=>{stopTransport();eventTrain=[];liveEnergy=0;renderTrain()};
 $("#clearLog").onclick=()=>$("#log").innerHTML="";
 
@@ -487,7 +504,7 @@ requestAnimationFrame(frame);
 $("#captureReference").onclick=()=>{captureActive=true;captureEvents=[];captureTrailA=[{...referenceA}];captureTrailB=[{...referenceB}];$("#captureStatus").textContent="recording";$("#captureReference").disabled=true;$("#stopCapture").disabled=false;renderCapturePath();log("Reference capture started")};
 $("#stopCapture").onclick=()=>{if(!captureActive)return;captureActive=false;$("#captureStatus").textContent="off";$("#captureReference").disabled=false;$("#stopCapture").disabled=true;
  const musicalEvents=captureEvents.filter(x=>x!=="bell");
- if(musicalEvents.length){savedTrains.push({name:`Ref ${savedTrains.length+1}`,events:musicalEvents,muted:false,solo:false,source:"reference",trailA:[...captureTrailA],trailB:[...captureTrailB]});renderSaved();renderPerformTracks();log("Captured reference became a saved train")}
+ if(musicalEvents.length){savedTrains.push({name:`Merc ${savedTrains.length+1}`,pathName:`Reference Path ${savedTrains.length+1}`,events:musicalEvents,muted:false,solo:false,source:"reference",trailA:[...captureTrailA],trailB:[...captureTrailB]});renderSaved();renderPerformTracks();log("Captured reference became a saved train")}
 };
 
 // performance Mercs
@@ -495,16 +512,21 @@ function renderPerformTracks(){
  const box=$("#performTracks");box.innerHTML="";
  if(!savedTrains.length){box.innerHTML='<span class="caption">Save Ocarina trains or capture a reference phrase to create Mercs.</span>';return}
  savedTrains.forEach((tr,i)=>{
+   if(!tr.pathName && (tr.trailA||tr.trailB))tr.pathName=`${tr.name} Path`;
    const row=document.createElement("div");row.className=`track-row ${tr.muted?"muted":""} ${tr.solo?"solo":""}`;
-   row.innerHTML=`<div><strong>${tr.name}</strong> <small>${tr.source||"ocarina"}</small><br><code>${tr.events.join(" · ")}</code></div>
+   const path=(tr.trailA||tr.trailB)?`<br><small>Path: <span class="path-name" data-perf-path="${i}">${tr.pathName}</span></small>`:"";
+   row.innerHTML=`<div><strong class="merc-name" data-perf-merc="${i}">${tr.name}</strong> <small>${tr.source||"ocarina"}</small>${path}<br><code>${tr.events.join(" · ")}</code></div>
    <div class="track-controls"><button data-action="mute">${tr.muted?"Unmute":"Mute"}</button><button data-action="solo">${tr.solo?"Unsolo":"Solo"}</button><button data-action="load">Load</button><button data-action="delete">Delete</button></div>`;
    row.querySelector('[data-action="mute"]').onclick=()=>{tr.muted=!tr.muted;renderPerformTracks()};
    row.querySelector('[data-action="solo"]').onclick=()=>{tr.solo=!tr.solo;renderPerformTracks()};
    row.querySelector('[data-action="load"]').onclick=()=>{eventTrain=[...tr.events];renderTrain()};
    row.querySelector('[data-action="delete"]').onclick=()=>{savedTrains.splice(i,1);renderSaved();renderPerformTracks()};
+   row.querySelector(`[data-perf-merc="${i}"]`).ondblclick=()=>renameMercAt(i,"merc");
+   const pn=row.querySelector(`[data-perf-path="${i}"]`);if(pn)pn.ondblclick=()=>renameMercAt(i,"path");
    box.appendChild(row);
  });
 }
+
 function audibleTracks(){const solo=savedTrains.filter(t=>t.solo&&!t.muted);return solo.length?solo:savedTrains.filter(t=>!t.muted)}
 function stopPerformance(){performanceToken++;performanceLooping=false;$("#loopSelected").classList.remove("active")}
 
@@ -531,7 +553,7 @@ $("#loopSelected").onclick=()=>{if(performanceLooping)stopPerformance();else pla
 loadReferencePresets();renderTrain();renderSaved();drawPerformIncidence();updateReadouts();syncReferenceInputs();renderReferencePresets();syncVoiceButtons();syncBusButtons();loadCore();
 
 
-console.info("[MARL] Musical Atlas Relational Lattice v1.5 booted");
+console.info("[MARL] Musical Atlas Relational Lattice v1.6 booted");
 
 document.addEventListener("click",(ev)=>{
   const b=ev.target.closest("[data-merc-mute]");
@@ -567,12 +589,12 @@ function transportSnapshot(){
     noBellRate:+$("#noBellRate").value,bellThreshold:+$("#bellThreshold").value,growth:+$("#growth").value};
 }
 function makeMLD(){
-  return {format:MLD_FORMAT,version:MLD_VERSION,createdAt:new Date().toISOString(),appVersion:"1.5.0",
+  return {format:MLD_FORMAT,version:MLD_VERSION,createdAt:new Date().toISOString(),appVersion:"1.6.0",
     title:"Untitled Lattice",geometry:geometrySnapshot(),transport:transportSnapshot(),
     references:{A:cloneData(referenceA),B:cloneData(referenceB),
       presets:referencePresets.map(p=>({id:p.id,name:p.name,A:cloneData(p.A),B:cloneData(p.B),armed:!!p.armed}))},
     eventTrain:[...eventTrain],
-    mercs:savedTrains.map(t=>({name:t.name,events:[...(t.events||[])],muted:!!t.muted,solo:!!t.solo,
+    mercs:savedTrains.map(t=>({name:t.name,pathName:t.pathName||null,events:[...(t.events||[])],muted:!!t.muted,solo:!!t.solo,
       source:t.source||"ocarina",trailA:t.trailA?cloneData(t.trailA):null,trailB:t.trailB?cloneData(t.trailB):null})),
     audio:{voiceAOn,voiceBOn,geometryBusOn,mercBusOn,masterAudible}};
 }
@@ -596,21 +618,21 @@ function applyMLD(d){
     A:{...p.A},B:{...p.B},armed:!!p.armed,lastClass:"none",lastEvent:0,energy:0}));
   saveReferencePresets();
   eventTrain=Array.isArray(d.eventTrain)?[...d.eventTrain]:[];
-  savedTrains=(d.mercs||[]).map((m,i)=>({name:m.name||`Merc ${i+1}`,events:[...(m.events||[])],muted:!!m.muted,solo:!!m.solo,
+  savedTrains=(d.mercs||[]).map((m,i)=>({name:m.name||`Merc ${i+1}`,pathName:m.pathName||null,events:[...(m.events||[])],muted:!!m.muted,solo:!!m.solo,
     source:m.source||"mld",trailA:m.trailA||null,trailB:m.trailB||null}));
   if(d.audio){voiceAOn=d.audio.voiceAOn!==false;voiceBOn=d.audio.voiceBOn!==false;geometryBusOn=d.audio.geometryBusOn!==false;mercBusOn=d.audio.mercBusOn!==false;masterAudible=d.audio.masterAudible!==false;}
   updateReadouts();syncReferenceInputs();renderReferencePresets();renderTrain();renderSaved();renderPerformTracks();syncVoiceButtons();syncBusButtons();
   log(`MLD · loaded ${d.title||"untitled"}`);
 }
 function makePMS(){
-  return {format:PMS_FORMAT,version:PMS_VERSION,createdAt:new Date().toISOString(),appVersion:"1.5.0",
-    title:"Persistent Merc Songbook",mercs:savedTrains.map(t=>({name:t.name,events:[...(t.events||[])],source:t.source||"ocarina",
+  return {format:PMS_FORMAT,version:PMS_VERSION,createdAt:new Date().toISOString(),appVersion:"1.6.0",
+    title:"Persistent Merc Songbook",mercs:savedTrains.map(t=>({name:t.name,pathName:t.pathName||null,events:[...(t.events||[])],source:t.source||"ocarina",
       trailA:t.trailA?cloneData(t.trailA):null,trailB:t.trailB?cloneData(t.trailB):null}))};
 }
 function applyPMS(d){
   if(!d||d.format!==PMS_FORMAT||d.version!==PMS_VERSION)throw new Error("Unsupported PMS format/version.");
   const start=savedTrains.length;
-  (d.mercs||[]).forEach((m,i)=>savedTrains.push({name:m.name||`Merc ${start+i+1}`,events:[...(m.events||[])],
+  (d.mercs||[]).forEach((m,i)=>savedTrains.push({name:m.name||`Merc ${start+i+1}`,pathName:m.pathName||null,events:[...(m.events||[])],
     muted:false,solo:false,source:m.source||"pms",trailA:m.trailA||null,trailB:m.trailB||null}));
   renderSaved();renderPerformTracks();log(`PMS · imported ${(d.mercs||[]).length} Mercs`);
 }

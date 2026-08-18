@@ -122,3 +122,11 @@ button[data-view].active {
 .file-button,.button-link{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:8px;padding:.42rem .65rem;cursor:pointer;text-decoration:none;color:inherit;background:var(--panel2)}
 .file-button input{display:none}.format-status{opacity:.65;font-size:.72rem;margin-left:.75rem}
 @media(max-width:800px){.data-toolbar{grid-template-columns:1fr}}
+
+.locked-bell{position:relative;cursor:not-allowed!important;opacity:.78!important;border-color:#d7b45c!important}
+.locked-bell::after{content:"×";position:absolute;inset:0;display:grid;place-items:center;font-size:3.3rem;font-weight:200;color:rgba(215,180,92,.18);pointer-events:none}
+.no-bell-pad{border-color:#c65d5d!important}
+.bell-pad{border-color:#d7b45c!important}
+.merc-name,.path-name{cursor:text;text-decoration:underline dotted;text-underline-offset:3px}
+.merc-name:hover,.path-name:hover{color:var(--accent)}
+.merc-save-header{align-items:center}

@@ -7,7 +7,7 @@
   <title>Musical Atlas Relational Lattice · Atlas Relational Ocarina · Mercable Theramin</title>
   <meta name="description" content="Playable Atlas Lattice relational-geometry instrument.">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=1.5.0">
+  <link rel="stylesheet" href="styles.css?v=1.6.0">
 </head>
 <body>
 <header class="topbar">
@@ -17,7 +17,7 @@
   </div>
   <div class="statusline">
     <span class="status established">ROCK: PETRIFIED</span>
-    <span class="status">MODEL: v1.5</span>
+    <span class="status">MODEL: v1.6</span>
     <span class="status no-bell">BELL BRIDGE: NO BELL</span>
   </div>
 </header>
@@ -31,16 +31,14 @@
 
 <section class="data-toolbar">
   <div class="data-group"><strong>Mutable Lattice Data</strong>
-    <button id="saveMLD">Save .mld</button>
     <label class="file-button">Open .mld<input id="openMLD" type="file" accept=".mld,application/json"></label>
     <button id="exportWav">Export WAV</button>
   </div>
   <div class="data-group"><strong>Persistent Merc Songbook</strong>
-    <button id="savePMS">Save .pms</button>
     <label class="file-button">Open .pms<input id="openPMS" type="file" accept=".pms,application/json"></label>
   </div>
   <div class="data-group"><strong>Player</strong>
-    <a class="button-link" href="player/index.html" target="_blank" rel="noopener">Open MLD/PMS Player</a>
+    <a class="button-link" href="./player/index.html" target="_blank" rel="noopener">Open MLD/PMS Player</a>
   </div>
 </section>
 
@@ -122,8 +120,8 @@
     <div class="instrument-grid">
       <button class="pad click-pad" data-sound="click">CLICK</button>
       <button class="pad ding-pad" data-sound="ding">DING</button>
-      <button class="pad bell-pad bell-locked" id="bellStatusPad" disabled>BELL<br><small>threshold only</small></button>
       <button class="pad no-bell-pad" data-sound="nobell">NO BELL</button>
+      <button class="pad bell-pad bell-locked locked-bell" id="bellStatusPad" disabled aria-disabled="true" title="Bell is threshold-generated and cannot be played directly">BELL<br><small>🔒 threshold only</small></button>
     </div>
 
     <div class="sequencer">
@@ -151,7 +149,14 @@
     </div>
 
     <div class="saved-section">
-      <div class="seq-header"><strong>Saved Mercs — current session only</strong></div>
+      <div class="seq-header merc-save-header">
+        <strong>Saved Mercs — current session only</strong>
+        <div class="transport">
+          <button id="saveMLD">Save MLD</button>
+          <button id="savePMS">Save PMS</button>
+        </div>
+      </div>
+      <div class="caption">Double-click a Merc name or a captured path name to rename it.</div>
       <div id="savedTrains" class="saved-trains"></div>
     </div>
   </section>
@@ -248,7 +253,7 @@
 </main>
 
 <footer>
-  <span>Musical Atlas Relational Lattice · v1.5</span>
+  <span>Musical Atlas Relational Lattice · v1.6</span>
   <span id="coreRevision"></span><span class="format-status">MLD v1 · PMS v1 · WAV PCM</span>
 </footer>
 
@@ -278,6 +283,6 @@
 })();
 </script>
 
-<script src="app.js?v=1.5.0"></script>
+<script src="app.js?v=1.6.0"></script>
 </body>
 </html>

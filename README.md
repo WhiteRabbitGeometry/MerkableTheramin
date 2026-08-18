@@ -1,4 +1,4 @@
-# Musical Atlas Relational Lattice — v1.5
+# Musical Atlas Relational Lattice — v1.6
 
 Official public working-model release.
 
@@ -28,7 +28,7 @@ Together:
 
 This preserves connectivity without collapsing the lattice into universal equivalence.
 
-## v1.5 UI changes
+## v1.6 UI changes
 
 - `ROCK: PETRIFIED`
 - `BELL BRIDGE: NO BELL`
@@ -59,7 +59,7 @@ After merge/deploy, hard refresh once on devices that previously loaded older re
 No build step or external libraries are required.
 
 
-## v1.5 audio-routing correction
+## v1.6 audio-routing correction
 
 - Geometry is continuous and cannot be stopped.
 - Perform `Stop` is replaced by **Mute Geometry / Listen Geometry**.
@@ -69,7 +69,7 @@ No build step or external libraries are required.
 - `auto-sonify geometry` is the automatic Click/Ding scanner toggle.
 
 
-## v1.5 mixer/UI correction
+## v1.6 mixer/UI correction
 
 - Merc = Mathematical Endogenic Relational Carrot.
 - Mercable is retained as the relational capability term.
@@ -81,12 +81,12 @@ No build step or external libraries are required.
 - Independent Ocarina and Perform looping remains permitted.
 
 
-## v1.5 coordinate-input refinement
+## v1.6 coordinate-input refinement
 
-The v1.5 engine is unchanged. Geometry and Perform now expose editable A/B reference coordinates at the top of their modules. Dragging a reference updates the numeric fields; typing coordinates moves the reference point. This makes exact states such as A=(0.50,0.50), B=(0.50,0.51) reproducible.
+The v1.6 engine is unchanged. Geometry and Perform now expose editable A/B reference coordinates at the top of their modules. Dragging a reference updates the numeric fields; typing coordinates moves the reference point. This makes exact states such as A=(0.50,0.50), B=(0.50,0.51) reproducible.
 
 
-## v1.5 Reference Metronomes
+## v1.6 Reference Metronomes
 
 - Save the current A/B coordinate pair as a named reference preset.
 - Recall a preset to move the live A/B references exactly back to that address.
@@ -97,9 +97,31 @@ The v1.5 engine is unchanged. Geometry and Perform now expose editable A/B refer
 - Reference presets use `sessionStorage`: they survive a page reload in the same browser tab/session, but are not yet permanent user data.
 
 
-## v1.5 Portable Data
+## v1.6 Portable Data
 - `.mld` — Mutable Lattice Data: reconstructible geometry, references, reference metronomes, transport, event train, Mercs, and routing state.
 - `.pms` — Persistent Merc Songbook: portable collection of Mercs.
 - WAV — lossless 44.1 kHz / 16-bit PCM render of the current Ocarina event train. WAV is a render, not the authoritative lattice source.
 - `player/index.html` — self-contained local MLD/PMS player with WAV export.
 - The same root ZIP is intended for both GitHub Pages and itch.io HTML5 hosting.
+
+
+## v1.6 Merc workspace refinement
+- Save MLD and Save PMS moved into the Saved Mercs workspace.
+- Saved Mercs can be renamed by double-clicking their names.
+- Captured reference paths retain a distinct path name and can be renamed independently.
+- Ocarina event order is CLICK → DING → NO BELL → BELL.
+- Bell is gold, locked, and visibly non-clickable because it is threshold-generated.
+
+
+## v2.0.0 public-generation cleanup
+- Correct nomenclature: **Merkable** (Merkaba / capable of being Merked) versus **Merc** (carrot object).
+- Visible in-application public version badge.
+- Canonical event order: CLICK → DING → NO BELL → BELL.
+- Incidence map is now an audible inspection surface: node inspection produces local Ding; bridge inspection can manually ring the otherwise threshold-generated Bell.
+- Incidence event state illuminates locally.
+- Geometry registrations leave temporary visual traces.
+- Ocarina event-train playback highlights the active train position.
+- A/B audio mute controls removed: A/B are geometric contributors, not independent sound channels.
+- Ocarina uses a single metronome/audio toggle.
+- MLD/PMS/WAV persistence controls live inside Perform.
+- Rainbow Harmonium link centralized in Perform.
