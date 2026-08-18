@@ -1,13 +1,13 @@
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const on=(selector,event,handler)=>{
   const el=$(selector);
-  if(!el){ console.warn(`[MARL v1.2] missing optional control ${selector}`); return null; }
+  if(!el){ console.warn(`[MARL v1.5] missing optional control ${selector}`); return null; }
   el.addEventListener(event,handler);
   return el;
 };
 const setText=(selector,text)=>{ const el=$(selector); if(el) el.textContent=text; };
 window.addEventListener("error",e=>{
-  console.error("[MARL v1.2 runtime]", e.error || e.message);
+  console.error("[MARL v1.5 runtime]", e.error || e.message);
   const hint=$("#audioHint");
   if(hint) hint.textContent="A module reported an error; basic view navigation remains available.";
 });
@@ -16,19 +16,23 @@ let eventTrain=[],savedTrains=[],transportToken=0,isLooping=false,performanceTok
 let liveEnergy=0,scanEnergy=0,lastScanEvent=0,lastScanClass="none";
 let captureActive=false,captureEvents=[],captureTrailA=[],captureTrailB=[];
 let referenceA={x:.38,y:.50},referenceB={x:.62,y:.50};
+let referencePresets=[];
+const REFERENCE_SESSION_KEY="marl.referencePresets.v1.5";
 let activeRef="A";
-let voiceAOn=true,voiceBOn=true,geometryBusOn=true,mercBusOn=true;
+let voiceAOn=true,voiceBOn=true,geometryBusOn=true,mercBusOn=true,masterAudible=true;
 
 
 function loadCore(){
-  CORE={version:"1.2.0",canonicalCore:"ROCK · PETRIFIED"};
+  CORE={version:"1.5.0",canonicalCore:"ROCK · PETRIFIED"};
   const rev=$("#coreRevision"); if(rev) rev.textContent=CORE.canonicalCore;
 }
 function flashEvent(type){
-  const ids={click:"#eventClick",ding:"#eventDing",bell:"#eventBell",nobell:"#eventNoBell"};
-  const el=$(ids[type]); if(!el) return;
-  el.classList.add("active");
-  setTimeout(()=>el.classList.remove("active"),180);
+ const idMap={click:"eventClick",ding:"eventDing",bell:"eventBell",noBell:"eventNoBell"};
+ const id=idMap[type];
+ if(id){const el=$("#"+id);if(el){el.classList.add("active");setTimeout(()=>el.classList.remove("active"),240)}}
+ document.querySelectorAll(`[data-event-copy="${type}"]`).forEach(el=>{
+   el.classList.add("active");setTimeout(()=>el.classList.remove("active"),240);
+ });
 }
 function log(msg){const d=document.createElement("div");d.className="logline";d.textContent=`${new Date().toLocaleTimeString()}  ${msg}`;$("#log").prepend(d)}
 async function ensureAudio(){
@@ -57,6 +61,7 @@ function tone(freq,t,dur=.35,gain=.16,type="sine",detune=0){
 }
 
 function busAllowed(bus){
+  if(!masterAudible) return false;
   if(bus==="geometry" && !geometryBusOn) return false;
   if(bus==="merc" && !mercBusOn) return false;
   return true;
@@ -268,9 +273,118 @@ function drawGeometry(canvas,ctx,performance=false){
    ctx.beginPath();ctx.arc(x,y,12,0,Math.PI*2);ctx.fillStyle="rgba(9,9,12,.75)";ctx.fill();ctx.strokeStyle=color;ctx.lineWidth=3;ctx.stroke();ctx.fillStyle=color;ctx.font="14px ui-monospace";ctx.fillText(label,x+16,y-12);
  }
  drawRef(referenceA,"#d7b45c","A",captureTrailA);drawRef(referenceB,"#8ba7ff","B",captureTrailB);
+
+ if(referencePresets && referencePresets.length){
+   referencePresets.filter(p=>p.armed).forEach((p,idx)=>{
+     [[p.A,"#d7b45c"],[p.B,"#8ba7ff"]].forEach(([ref,color])=>{
+       const x=ref.x*w,y=ref.y*h;
+       ctx.save();ctx.globalAlpha=.34;ctx.beginPath();ctx.arc(x,y,7+idx%3,0,Math.PI*2);
+       ctx.strokeStyle=color;ctx.setLineDash([3,3]);ctx.lineWidth=1.5;ctx.stroke();ctx.restore();
+     });
+   });
+ }
+
  const nearest=(P,ref)=>{const rx=ref.x*w,ry=ref.y*h;let n=Infinity;P.forEach(p=>n=Math.min(n,Math.hypot(p[0]-rx,p[1]-ry)));return Math.max(0,1-n/115)};
  return {scoreA:nearest(P_A,referenceA),scoreB:nearest(P_B,referenceB)};
 }
+
+
+function loadReferencePresets(){
+  try{
+    const raw=sessionStorage.getItem(REFERENCE_SESSION_KEY);
+    referencePresets=raw?JSON.parse(raw):[];
+    if(!Array.isArray(referencePresets))referencePresets=[];
+  }catch(e){referencePresets=[]}
+}
+function saveReferencePresets(){
+  try{sessionStorage.setItem(REFERENCE_SESSION_KEY,JSON.stringify(referencePresets))}catch(e){}
+}
+function currentReferenceSnapshot(name){
+  return {
+    id:`r${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
+    name:name||`Ref ${referencePresets.length+1}`,
+    A:{x:+referenceA.x.toFixed(4),y:+referenceA.y.toFixed(4)},
+    B:{x:+referenceB.x.toFixed(4),y:+referenceB.y.toFixed(4)},
+    armed:false,
+    lastClass:"none",
+    lastEvent:0,
+    energy:0
+  };
+}
+function recallReferencePreset(p){
+  referenceA={...p.A};referenceB={...p.B};
+  updateReadouts();syncReferenceInputs();log(`REFERENCE · recalled ${p.name}`);
+}
+function toggleReferencePreset(id){
+  const p=referencePresets.find(x=>x.id===id);if(!p)return;
+  p.armed=!p.armed;p.lastClass="none";p.lastEvent=0;p.energy=0;
+  saveReferencePresets();renderReferencePresets();
+  log(`REFERENCE · ${p.armed?"armed":"disarmed"} ${p.name}`);
+}
+function deleteReferencePreset(id){
+  referencePresets=referencePresets.filter(x=>x.id!==id);
+  saveReferencePresets();renderReferencePresets();
+}
+function renderReferencePresets(){
+  const render=(box)=>{
+    if(!box)return;box.innerHTML="";
+    if(!referencePresets.length){box.innerHTML='<span class="caption">No saved reference pairs this session.</span>';return}
+    referencePresets.forEach(p=>{
+      const row=document.createElement("div");row.className=`reference-preset ${p.armed?"armed":""}`;
+      row.innerHTML=`<div><strong>${p.name}</strong><br><code>A(${p.A.x.toFixed(2)},${p.A.y.toFixed(2)}) · B(${p.B.x.toFixed(2)},${p.B.y.toFixed(2)})</code></div>
+        <button data-ref-recall="${p.id}">Recall</button>
+        <button data-ref-arm="${p.id}">${p.armed?"Disarm":"Arm"}</button>
+        <button data-ref-delete="${p.id}">Delete</button>`;
+      box.appendChild(row);
+    });
+  };
+  render($("#referencePresets"));render($("#performReferencePresets"));
+}
+document.addEventListener("click",ev=>{
+  let b=ev.target.closest("[data-ref-recall]");if(b){const p=referencePresets.find(x=>x.id===b.dataset.refRecall);if(p)recallReferencePreset(p);return}
+  b=ev.target.closest("[data-ref-arm]");if(b){toggleReferencePreset(b.dataset.refArm);return}
+  b=ev.target.closest("[data-ref-delete]");if(b){deleteReferencePreset(b.dataset.refDelete);return}
+});
+on("#saveReference","click",()=>{
+  const name=($("#referenceName")?.value||"").trim();
+  referencePresets.push(currentReferenceSnapshot(name));
+  if($("#referenceName"))$("#referenceName").value="";
+  saveReferencePresets();renderReferencePresets();
+});
+
+function clamp01(v){ return Math.max(0,Math.min(1,Number(v))); }
+
+function syncReferenceInputs(){
+  const values={
+    "#refAX":referenceA.x,"#refAY":referenceA.y,
+    "#refBX":referenceB.x,"#refBY":referenceB.y,
+    "#performRefAX":referenceA.x,"#performRefAY":referenceA.y,
+    "#performRefBX":referenceB.x,"#performRefBY":referenceB.y
+  };
+  Object.entries(values).forEach(([sel,val])=>{
+    const el=$(sel); if(el && document.activeElement!==el) el.value=val.toFixed(2);
+  });
+}
+
+function setReferenceFromInputs(which,x,y){
+  if(which==="A") referenceA={x:clamp01(x),y:clamp01(y)};
+  else referenceB={x:clamp01(x),y:clamp01(y)};
+  updateReadouts();
+  syncReferenceInputs();
+}
+
+function bindReferenceInputGroup(prefix,which){
+  const x=$("#"+prefix+"X"), y=$("#"+prefix+"Y");
+  if(!x||!y)return;
+  const update=()=>setReferenceFromInputs(which,x.value,y.value);
+  x.addEventListener("change",update); y.addEventListener("change",update);
+  x.addEventListener("input",update); y.addEventListener("input",update);
+}
+bindReferenceInputGroup("refA","A");
+bindReferenceInputGroup("refB","B");
+bindReferenceInputGroup("performRefA","A");
+bindReferenceInputGroup("performRefB","B");
+
 function updateReadouts(){
  const pA=pentatonicFromRef(referenceA),pB=pentatonicFromRef(referenceB),rel=relationState(lastScoreA,lastScoreB);
  const iv=intervalLabel(pA,pB),rs=rel.harmonic?"harmonic":"dissonant";
@@ -284,9 +398,23 @@ function setReference(canvas,e){
  if(activeRef==="A"){referenceA={x:nx,y:ny};if(captureActive)captureTrailA.push({...referenceA})}
  else{referenceB={x:nx,y:ny};if(captureActive)captureTrailB.push({...referenceB})}
  updateReadouts();
+ syncReferenceInputs();
 }
 [$("#geoCanvas"),$("#performGeoCanvas")].forEach(c=>{let drag=false;c.onpointerdown=e=>{drag=true;c.setPointerCapture(e.pointerId);setReference(c,e)};c.onpointermove=e=>{if(drag)setReference(c,e)};c.onpointerup=()=>drag=false});
-$("#resetReferences").onclick=()=>{referenceA={x:.38,y:.5};referenceB={x:.62,y:.5};updateReadouts()};
+$("#resetReferences").onclick=()=>{referenceA={x:.38,y:.5};referenceB={x:.62,y:.5};updateReadouts();syncReferenceInputs()};
+
+
+function scoreReferencePair(canvas,refA,refB){
+  const w=canvas.width,h=canvas.height,rip=+$("#ripple").value;
+  const P_B=V.map(v=>proj(v,aB,true,w,h,760,rip));
+  const P_A=V.map(v=>proj(v,aA,false,w,h,700,rip));
+  const nearest=(P,ref)=>{
+    const rx=ref.x*w,ry=ref.y*h;let n=Infinity;
+    P.forEach(p=>n=Math.min(n,Math.hypot(p[0]-rx,p[1]-ry)));
+    return Math.max(0,1-n/115);
+  };
+  return {scoreA:nearest(P_A,refA),scoreB:nearest(P_B,refB)};
+}
 
 async function maybeScanEvent(now,performanceVisible){
  if(!audioUnlocked)return;
@@ -311,11 +439,47 @@ function renderCapturePath(){
  $("#capturedEventPath").textContent=captureEvents.length?captureEvents.map(x=>x==="bell"?"BELL":x.toUpperCase()).join(" · "):"— no captured events yet —";
 }
 
+
+async function maybeScanSavedReferences(now){
+  if(!audioUnlocked||!geometryBusOn)return;
+  const rate=+$("#scanRate").value;
+  const inGeometry=$("#geometryView").classList.contains("active");
+  const inPerform=$("#performView").classList.contains("active")&&$("#armGeometry").checked;
+  if(!(inGeometry||inPerform))return;
+  const canvas=inPerform?$("#performGeoCanvas"):$("#geoCanvas");
+  for(const p of referencePresets.filter(x=>x.armed)){
+    if(now-p.lastEvent<rate)continue;
+    const sc=scoreReferencePair(canvas,p.A,p.B);
+    const combined=(sc.scoreA+sc.scoreB)/2;
+    const cls=combined>.81?"ding":combined>.60?"click":"none";
+    if(cls==="none"){p.lastClass="none";continue}
+    if(cls!==p.lastClass||now-p.lastEvent>rate*2){
+      p.lastEvent=now;p.lastClass=cls;
+      if(cls==="click"){click();p.energy+=.55}
+      else{
+        const oldA=referenceA,oldB=referenceB;
+        referenceA=p.A;referenceB=p.B;
+        const h=currentHarmony();dingPair(h.pA,h.pB,h.rel,audioCtx.currentTime,"geometry");
+        referenceA=oldA;referenceB=oldB;
+        p.energy+=.85;
+      }
+      log(`AUTO ${cls.toUpperCase()} · ${p.name} · alignment ${combined.toFixed(3)}`);
+      if(p.energy>=threshold()){
+        const oldA=referenceA,oldB=referenceB;
+        referenceA=p.A;referenceB=p.B;
+        await ringBell(`reference metronome ${p.name}`,"geometry");
+        referenceA=oldA;referenceB=oldB;
+        p.energy=0;
+      }
+    }
+  }
+}
+
 function frame(now){
  const dt=(now-last)/1000;last=now;if($("#autoScan").checked){aA+=dt*+$("#speedA").value;aB+=dt*+$("#speedB").value;phase+=dt*.8}
  const g=drawGeometry($("#geoCanvas"),$("#geoCanvas").getContext("2d"),false);
  const p=drawGeometry($("#performGeoCanvas"),$("#performGeoCanvas").getContext("2d"),true);
- lastScoreA=g.scoreA;lastScoreB=g.scoreB;updateReadouts();maybeScanEvent(now);requestAnimationFrame(frame)
+ lastScoreA=g.scoreA;lastScoreB=g.scoreB;updateReadouts();maybeScanEvent(now);maybeScanSavedReferences(now);requestAnimationFrame(frame)
 }
 requestAnimationFrame(frame);
 
@@ -350,9 +514,12 @@ function syncBusButtons(){
   if(g){g.textContent=geometryBusOn?"Mute Geometry":"Listen Geometry";g.classList.toggle("muted",!geometryBusOn)}
   const m=$("#muteMercs");
   if(m){m.textContent=mercBusOn?"Mute Mercs":"Listen Mercs";m.classList.toggle("muted",!mercBusOn)}
+  const all=$("#masterMute");
+  if(all){all.textContent=masterAudible?"Mute All":"Listen All";all.classList.toggle("muted",!masterAudible)}
 }
 on("#muteGeometry","click",()=>{geometryBusOn=!geometryBusOn;syncBusButtons()});
 on("#muteMercs","click",()=>{mercBusOn=!mercBusOn;syncBusButtons()});
+on("#masterMute","click",async()=>{await ensureAudio();masterAudible=!masterAudible;if(masterGain)masterGain.gain.setTargetAtTime(masterAudible?1:0,audioCtx.currentTime,.015);syncBusButtons()});
 
 async function playStack(loop=false){
  const Mercs=audibleTracks();if(!Mercs.length)return;stopPerformance();performanceLooping=loop;const token=++performanceToken;if(loop)$("#loopSelected").classList.add("active");
@@ -361,7 +528,125 @@ async function playStack(loop=false){
 $("#playSelected").onclick=()=>playStack(false);
 $("#loopSelected").onclick=()=>{if(performanceLooping)stopPerformance();else playStack(true)};
 
-renderTrain();renderSaved();drawPerformIncidence();updateReadouts();syncVoiceButtons();syncBusButtons();loadCore();
+loadReferencePresets();renderTrain();renderSaved();drawPerformIncidence();updateReadouts();syncReferenceInputs();renderReferencePresets();syncVoiceButtons();syncBusButtons();loadCore();
 
 
-console.info("[MARL] Musical Atlas Relational Lattice v1.2 booted");
+console.info("[MARL] Musical Atlas Relational Lattice v1.5 booted");
+
+document.addEventListener("click",(ev)=>{
+  const b=ev.target.closest("[data-merc-mute]");
+  if(!b)return;
+  const i=Number(b.dataset.mercMute);
+  if(Number.isInteger(i) && savedTrains[i]){
+    savedTrains[i].muted=!savedTrains[i].muted;
+    renderSaved();
+    if(typeof drawPerformIncidence==="function")drawPerformIncidence();
+  }
+});
+
+
+// ---------------- Portable lattice data: MLD / PMS / WAV ----------------
+const MLD_FORMAT="MLD", MLD_VERSION=1, PMS_FORMAT="PMS", PMS_VERSION=1;
+
+function dl(blob,name){
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=name; a.style.display="none";
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},600);
+}
+function cloneData(x){return JSON.parse(JSON.stringify(x))}
+function cleanFileName(x,fallback){
+  return (x||fallback||"lattice").replace(/[^\w\-]+/g,"_").replace(/^_+|_+$/g,"").slice(0,64)||fallback;
+}
+function geometrySnapshot(){
+  return {speedA:+$("#speedA").value,speedB:+$("#speedB").value,ripple:+$("#ripple").value,
+    scanRate:+$("#scanRate").value,autoScan:$("#autoScan").checked,sonifyScan:$("#sonifyScan").checked,showAxes:$("#showAxes").checked};
+}
+function transportSnapshot(){
+  return {tempo:+$("#tempo").value,clickRate:+$("#clickRate").value,dingRate:+$("#dingRate").value,
+    noBellRate:+$("#noBellRate").value,bellThreshold:+$("#bellThreshold").value,growth:+$("#growth").value};
+}
+function makeMLD(){
+  return {format:MLD_FORMAT,version:MLD_VERSION,createdAt:new Date().toISOString(),appVersion:"1.5.0",
+    title:"Untitled Lattice",geometry:geometrySnapshot(),transport:transportSnapshot(),
+    references:{A:cloneData(referenceA),B:cloneData(referenceB),
+      presets:referencePresets.map(p=>({id:p.id,name:p.name,A:cloneData(p.A),B:cloneData(p.B),armed:!!p.armed}))},
+    eventTrain:[...eventTrain],
+    mercs:savedTrains.map(t=>({name:t.name,events:[...(t.events||[])],muted:!!t.muted,solo:!!t.solo,
+      source:t.source||"ocarina",trailA:t.trailA?cloneData(t.trailA):null,trailB:t.trailB?cloneData(t.trailB):null})),
+    audio:{voiceAOn,voiceBOn,geometryBusOn,mercBusOn,masterAudible}};
+}
+function applySlider(id,value){
+  if(value===undefined||value===null)return;
+  const el=$("#"+id);if(!el)return;el.value=value;el.dispatchEvent(new Event("input",{bubbles:true}));
+}
+function applyMLD(d){
+  if(!d||d.format!==MLD_FORMAT||d.version!==MLD_VERSION)throw new Error("Unsupported MLD format/version.");
+  if(d.geometry){
+    applySlider("speedA",d.geometry.speedA);applySlider("speedB",d.geometry.speedB);applySlider("ripple",d.geometry.ripple);applySlider("scanRate",d.geometry.scanRate);
+    if(d.geometry.autoScan!==undefined)$("#autoScan").checked=!!d.geometry.autoScan;
+    if(d.geometry.sonifyScan!==undefined)$("#sonifyScan").checked=!!d.geometry.sonifyScan;
+    if(d.geometry.showAxes!==undefined)$("#showAxes").checked=!!d.geometry.showAxes;
+  }
+  if(d.transport){
+    for(const k of ["tempo","clickRate","dingRate","noBellRate","bellThreshold","growth"])applySlider(k,d.transport[k]);
+  }
+  if(d.references?.A)referenceA={...d.references.A}; if(d.references?.B)referenceB={...d.references.B};
+  referencePresets=(d.references?.presets||[]).map((p,i)=>({id:p.id||`mld_${Date.now()}_${i}`,name:p.name||`Ref ${i+1}`,
+    A:{...p.A},B:{...p.B},armed:!!p.armed,lastClass:"none",lastEvent:0,energy:0}));
+  saveReferencePresets();
+  eventTrain=Array.isArray(d.eventTrain)?[...d.eventTrain]:[];
+  savedTrains=(d.mercs||[]).map((m,i)=>({name:m.name||`Merc ${i+1}`,events:[...(m.events||[])],muted:!!m.muted,solo:!!m.solo,
+    source:m.source||"mld",trailA:m.trailA||null,trailB:m.trailB||null}));
+  if(d.audio){voiceAOn=d.audio.voiceAOn!==false;voiceBOn=d.audio.voiceBOn!==false;geometryBusOn=d.audio.geometryBusOn!==false;mercBusOn=d.audio.mercBusOn!==false;masterAudible=d.audio.masterAudible!==false;}
+  updateReadouts();syncReferenceInputs();renderReferencePresets();renderTrain();renderSaved();renderPerformTracks();syncVoiceButtons();syncBusButtons();
+  log(`MLD · loaded ${d.title||"untitled"}`);
+}
+function makePMS(){
+  return {format:PMS_FORMAT,version:PMS_VERSION,createdAt:new Date().toISOString(),appVersion:"1.5.0",
+    title:"Persistent Merc Songbook",mercs:savedTrains.map(t=>({name:t.name,events:[...(t.events||[])],source:t.source||"ocarina",
+      trailA:t.trailA?cloneData(t.trailA):null,trailB:t.trailB?cloneData(t.trailB):null}))};
+}
+function applyPMS(d){
+  if(!d||d.format!==PMS_FORMAT||d.version!==PMS_VERSION)throw new Error("Unsupported PMS format/version.");
+  const start=savedTrains.length;
+  (d.mercs||[]).forEach((m,i)=>savedTrains.push({name:m.name||`Merc ${start+i+1}`,events:[...(m.events||[])],
+    muted:false,solo:false,source:m.source||"pms",trailA:m.trailA||null,trailB:m.trailB||null}));
+  renderSaved();renderPerformTracks();log(`PMS · imported ${(d.mercs||[]).length} Mercs`);
+}
+async function readJSONFile(file){return JSON.parse(await file.text())}
+
+on("#saveMLD","click",()=>{const d=makeMLD();dl(new Blob([JSON.stringify(d,null,2)],{type:"application/json"}),cleanFileName(d.title,"lattice")+".mld")});
+on("#openMLD","change",async ev=>{const f=ev.target.files?.[0];if(!f)return;try{applyMLD(await readJSONFile(f))}catch(e){alert("Could not open MLD: "+e.message)}ev.target.value=""});
+on("#savePMS","click",()=>{const d=makePMS();dl(new Blob([JSON.stringify(d,null,2)],{type:"application/json"}),cleanFileName(d.title,"songbook")+".pms")});
+on("#openPMS","change",async ev=>{const f=ev.target.files?.[0];if(!f)return;try{applyPMS(await readJSONFile(f))}catch(e){alert("Could not open PMS: "+e.message)}ev.target.value=""});
+
+// Lossless 44.1kHz / 16-bit mono PCM WAV rendering of current Ocarina event train.
+// WAV is an audio rendering only; MLD remains the reconstructible source.
+function wavRender(events){
+  const sr=44100,beat=60/(+$("#tempo").value||108);
+  const er=e=>e==="click"?+$("#clickRate").value:e==="ding"?+$("#dingRate").value:+$("#noBellRate").value;
+  const dur=e=>beat/Math.max(.01,er(e)||1);
+  const total=Math.max(.8,events.reduce((s,e)=>s+dur(e),0)+.8), n=Math.ceil(total*sr), samples=new Float32Array(n);
+  let at=0,energy=0,ord=0; const h=currentHarmony();
+  function sine(start,freq,len,gain,det=0){const f=freq*Math.pow(2,det/1200),i0=Math.floor(start*sr),i1=Math.min(n,i0+Math.floor(len*sr));
+    for(let i=i0;i<i1;i++){const t=(i-i0)/sr;samples[i]+=Math.sin(2*Math.PI*f*t)*gain*Math.exp(-4*t/Math.max(.02,len));}}
+  function noise(start,len,gain){const i0=Math.floor(start*sr),i1=Math.min(n,i0+Math.floor(len*sr));
+    for(let i=i0;i<i1;i++){const t=(i-i0)/sr;samples[i]+=(Math.random()*2-1)*gain*Math.max(0,1-t/len);}}
+  for(const e of events){
+    if(e==="click"){noise(at,.02,.16);sine(at,950,.04,.05);energy+=contribution("click",ord++)}
+    else if(e==="ding"){if(voiceAOn){sine(at,h.pA.freq,.72,.10);sine(at,h.pA.freq*2,.30,.025)}
+      if(voiceBOn)sine(at,h.pB.freq,.72,.09,h.rel.harmonic?0:(referenceB.x>=referenceA.x?h.rel.detune:-h.rel.detune));energy+=contribution("ding",ord++)}
+    else{sine(at,92,.18,.07);noise(at,.05,.05);energy=0;ord=0}
+    if(energy>=threshold()){const bt=at+.06;if(voiceAOn){sine(bt,h.pA.freq,1.8,.11);sine(bt,h.pA.freq*2,1.2,.05)}
+      if(voiceBOn)sine(bt,h.pB.freq,1.8,.09,h.rel.harmonic?0:(referenceB.x>=referenceA.x?h.rel.detune:-h.rel.detune));energy=0;ord=0}
+    at+=dur(e);
+  }
+  let peak=0;for(const x of samples)peak=Math.max(peak,Math.abs(x));if(peak>.98){const s=.98/peak;for(let i=0;i<n;i++)samples[i]*=s}
+  const b=new ArrayBuffer(44+n*2),v=new DataView(b),ws=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};
+  ws(0,"RIFF");v.setUint32(4,36+n*2,true);ws(8,"WAVE");ws(12,"fmt ");v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);
+  v.setUint32(24,sr,true);v.setUint32(28,sr*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);ws(36,"data");v.setUint32(40,n*2,true);
+  let o=44;for(const x of samples){v.setInt16(o,Math.max(-1,Math.min(1,x))*32767,true);o+=2}
+  return new Blob([b],{type:"audio/wav"});
+}
+on("#exportWav","click",()=>{if(!eventTrain.length){alert("The current Ocarina event train is empty.");return}dl(wavRender(eventTrain),"merkabarina_render.wav")});

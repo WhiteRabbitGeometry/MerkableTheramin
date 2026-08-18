@@ -4,20 +4,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#09090c">
-  <title>Musical Atlas Relational Lattice · Atlas Relational Ocarina · Merkable Theramin</title>
+  <title>Musical Atlas Relational Lattice · Atlas Relational Ocarina · Mercable Theramin</title>
   <meta name="description" content="Playable Atlas Lattice relational-geometry instrument.">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=1.2.0">
+  <link rel="stylesheet" href="styles.css?v=1.5.0">
 </head>
 <body>
 <header class="topbar">
   <div>
     <div class="eyebrow">THE MUSICAL ATLAS RELATIONAL LATTICE</div>
-    <h1>Atlas Relational Ocarina <span class="subtitle">(Merkabarina · Merkable Theramin)</span></h1>
+    <h1>Atlas Relational Ocarina <span class="subtitle">(Mercabarina · Mercable Theramin)</span></h1>
   </div>
   <div class="statusline">
     <span class="status established">ROCK: PETRIFIED</span>
-    <span class="status">MODEL: v1.2</span>
+    <span class="status">MODEL: v1.5</span>
     <span class="status no-bell">BELL BRIDGE: NO BELL</span>
   </div>
 </header>
@@ -26,6 +26,22 @@
 <section class="intro">
   <p>A playable display model of the Atlas Lattice. Mathematics controls the map. Sound reflects state; it does not determine truth.</p>
   <div id="audioHint" class="audio-hint">Sound unlocks automatically on your first interaction.</div>
+</section>
+
+
+<section class="data-toolbar">
+  <div class="data-group"><strong>Mutable Lattice Data</strong>
+    <button id="saveMLD">Save .mld</button>
+    <label class="file-button">Open .mld<input id="openMLD" type="file" accept=".mld,application/json"></label>
+    <button id="exportWav">Export WAV</button>
+  </div>
+  <div class="data-group"><strong>Persistent Merc Songbook</strong>
+    <button id="savePMS">Save .pms</button>
+    <label class="file-button">Open .pms<input id="openPMS" type="file" accept=".pms,application/json"></label>
+  </div>
+  <div class="data-group"><strong>Player</strong>
+    <a class="button-link" href="player/index.html" target="_blank" rel="noopener">Open MLD/PMS Player</a>
+  </div>
 </section>
 
 <section class="metrics" id="metrics">
@@ -55,6 +71,22 @@
 
   <section id="geometryView" class="panel">
     <div class="controls">
+      <div class="reference-inputs">
+        <label>A ref X <input id="refAX" type="number" min="0" max="1" step="0.01" value="0.38"></label>
+        <label>A ref Y <input id="refAY" type="number" min="0" max="1" step="0.01" value="0.50"></label>
+        <label>B ref X <input id="refBX" type="number" min="0" max="1" step="0.01" value="0.62"></label>
+        <label>B ref Y <input id="refBY" type="number" min="0" max="1" step="0.01" value="0.50"></label>
+      </div>
+      <div class="reference-bank">
+        <div class="reference-bank-head">
+          <strong>Reference Metronomes</strong>
+          <div class="reference-save">
+            <input id="referenceName" type="text" maxlength="28" placeholder="name this pair">
+            <button id="saveReference">Save Pair</button>
+          </div>
+        </div>
+        <div id="referencePresets" class="reference-presets"></div>
+      </div>
       <label>Speed A <input id="speedA" type="range" min="-2" max="2" value="0.55" step="0.01"><output id="speedAOut">0.55</output></label>
       <label>Speed B <input id="speedB" type="range" min="-2" max="2" value="-0.55" step="0.01"><output id="speedBOut">-0.55</output></label>
       <label>Ripple <input id="ripple" type="range" min="-0.20" max="0.20" value="0.00" step="0.005"><output id="rippleOut">0.000</output></label>
@@ -63,6 +95,12 @@
       <label><input id="muteB" type="checkbox"> mute B</label>
       <label><input id="autoScan" type="checkbox" checked> rotate</label>
       <label title="Automatically sound Click/Ding events when the rotating geometry crosses registration bands"><input id="sonifyScan" type="checkbox" checked> auto-sonify geometry</label>
+        <div class="local-events" aria-label="Current geometry event">
+          <span data-event-copy="click">CLICK</span>
+          <span data-event-copy="ding">DING</span>
+          <span data-event-copy="bell">BELL</span>
+          <span data-event-copy="noBell">NO BELL</span>
+        </div>
       <label><input id="showAxes" type="checkbox" checked> C₅ axes</label>
     </div>
     <canvas id="geoCanvas" width="1000" height="700" aria-label="Counter-rotating mirrored dodecahedral shells"></canvas>
@@ -129,11 +167,28 @@
         <button id="loopSelected">Loop Selected</button>
         <button id="muteGeometry">Mute Geometry</button>
         <button id="muteMercs">Mute Mercs</button>
+        <button id="masterMute">Mute All</button>
+        <div class="local-events" aria-label="Current event">
+          <span data-event-copy="click">CLICK</span>
+          <span data-event-copy="ding">DING</span>
+          <span data-event-copy="bell">BELL</span>
+          <span data-event-copy="noBell">NO BELL</span>
+        </div>
         <button id="captureReference">Capture Reference</button>
         <button id="stopCapture" disabled>Stop Capture</button>
       </div>
     </div>
 
+    <div class="performance-reference-inputs">
+      <label>A X <input id="performRefAX" type="number" min="0" max="1" step="0.01" value="0.38"></label>
+      <label>A Y <input id="performRefAY" type="number" min="0" max="1" step="0.01" value="0.50"></label>
+      <label>B X <input id="performRefBX" type="number" min="0" max="1" step="0.01" value="0.62"></label>
+      <label>B Y <input id="performRefBY" type="number" min="0" max="1" step="0.01" value="0.50"></label>
+    </div>
+    <div class="reference-bank perform-reference-bank">
+      <div class="reference-bank-head"><strong>Reference Metronomes</strong><span class="caption">Recall or arm saved pairs</span></div>
+      <div id="performReferencePresets" class="reference-presets"></div>
+    </div>
     <div class="perform-mixer">
       <button id="performMuteA" class="ab-voice">A: ON</button>
       <button id="performMuteB" class="ab-voice">B: ON</button>
@@ -193,8 +248,8 @@
 </main>
 
 <footer>
-  <span>Musical Atlas Relational Lattice · v1.2</span>
-  <span id="coreRevision"></span>
+  <span>Musical Atlas Relational Lattice · v1.5</span>
+  <span id="coreRevision"></span><span class="format-status">MLD v1 · PMS v1 · WAV PCM</span>
 </footer>
 
 
@@ -223,6 +278,6 @@
 })();
 </script>
 
-<script src="app.js?v=1.2.0"></script>
+<script src="app.js?v=1.5.0"></script>
 </body>
 </html>
