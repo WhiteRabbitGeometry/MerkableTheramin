@@ -1,27 +1,27 @@
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const on=(selector,event,handler)=>{
   const el=$(selector);
-  if(!el){ console.warn(`[MARL v1.1] missing optional control ${selector}`); return null; }
+  if(!el){ console.warn(`[MARL v1.2] missing optional control ${selector}`); return null; }
   el.addEventListener(event,handler);
   return el;
 };
 const setText=(selector,text)=>{ const el=$(selector); if(el) el.textContent=text; };
 window.addEventListener("error",e=>{
-  console.error("[MARL v1.1 runtime]", e.error || e.message);
+  console.error("[MARL v1.2 runtime]", e.error || e.message);
   const hint=$("#audioHint");
   if(hint) hint.textContent="A module reported an error; basic view navigation remains available.";
 });
-let CORE=null,audioCtx=null,masterGain=null,muted=false,audioUnlocked=false;
+let CORE=null,audioCtx=null,masterGain=null,audioUnlocked=false;
 let eventTrain=[],savedTrains=[],transportToken=0,isLooping=false,performanceToken=0,performanceLooping=false;
 let liveEnergy=0,scanEnergy=0,lastScanEvent=0,lastScanClass="none";
 let captureActive=false,captureEvents=[],captureTrailA=[],captureTrailB=[];
 let referenceA={x:.38,y:.50},referenceB={x:.62,y:.50};
 let activeRef="A";
-let voiceAOn=true,voiceBOn=true;
+let voiceAOn=true,voiceBOn=true,geometryBusOn=true,mercBusOn=true;
 
 
 function loadCore(){
-  CORE={version:"1.1.0",canonicalCore:"ROCK · PETRIFIED"};
+  CORE={version:"1.2.0",canonicalCore:"ROCK · PETRIFIED"};
   const rev=$("#coreRevision"); if(rev) rev.textContent=CORE.canonicalCore;
 }
 function flashEvent(type){
@@ -34,18 +34,14 @@ function log(msg){const d=document.createElement("div");d.className="logline";d.
 async function ensureAudio(){
  if(!audioCtx){
    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-   masterGain=audioCtx.createGain();masterGain.connect(audioCtx.destination);masterGain.gain.value=muted?0:1;
+   masterGain=audioCtx.createGain();masterGain.connect(audioCtx.destination);masterGain.gain.value=1;
  }
  if(audioCtx.state==="suspended")try{await audioCtx.resume()}catch(e){}
  audioUnlocked=audioCtx.state==="running";
- if(audioUnlocked)$("#audioHint").textContent=muted?"Sound unlocked — currently muted.":"Sound is live.";
+ if(audioUnlocked)$("#audioHint").textContent="Sound is live.";
  return audioUnlocked;
 }
 ["pointerdown","keydown","touchstart"].forEach(evt=>window.addEventListener(evt,()=>ensureAudio(),{once:true,capture:true}));
-on("#muteButton","click",async()=>{
- await ensureAudio();muted=!muted;if(masterGain)masterGain.gain.setTargetAtTime(muted?0:1,audioCtx.currentTime,.01);
- $("#muteButton").textContent=muted?"🔇 Muted":"🔊 Sound On";$("#muteButton").setAttribute("aria-pressed",String(muted));
-});
 
 function noiseBurst(t,dur=.025,gain=.25){
  if(!audioCtx||!masterGain)return;
@@ -59,6 +55,13 @@ function tone(freq,t,dur=.35,gain=.16,type="sine",detune=0){
  const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.setValueAtTime(freq,t);o.detune.setValueAtTime(detune,t);
  g.gain.setValueAtTime(gain,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g).connect(masterGain);o.start(t);o.stop(t+dur);
 }
+
+function busAllowed(bus){
+  if(bus==="geometry" && !geometryBusOn) return false;
+  if(bus==="merc" && !mercBusOn) return false;
+  return true;
+}
+
 function click(t=audioCtx.currentTime){flashEvent("click");noiseBurst(t,.018,.18);tone(950,t,.035,.055,"square")}
 function noBell(t=audioCtx.currentTime){flashEvent("nobell");tone(92,t,.18,.08,"triangle");noiseBurst(t,.05,.06)}
 
@@ -81,17 +84,32 @@ function relationState(scoreA,scoreB){
  const detune=harmonic?0:Math.min(42,8+phase*34+diff*18);
  return {harmonic,detune,phase,diff};
 }
-function dingPair(pA,pB,rel,t=audioCtx.currentTime){
+function dingPair(pA,pB,rel,t=audioCtx.currentTime,bus="merc"){
+ if(!busAllowed(bus)) return;
  flashEvent("ding");
- if(voiceAOn){tone(pA.freq,t,.72,.10,"sine",0);tone(pA.freq*2,t,.32,.025,"sine",0);}
- if(voiceBOn){tone(pB.freq,t,.72,.09,"sine",rel.harmonic?0:(referenceB.x>=referenceA.x?rel.detune:-rel.detune));}
+ if(voiceAOn){
+   tone(pA.freq,t,.72,.10,"sine",0);
+   tone(pA.freq*2,t,.32,.025,"sine",0);
+ }
+ if(voiceBOn){
+   tone(pB.freq,t,.72,.09,"sine",rel.harmonic?0:(referenceB.x>=referenceA.x?rel.detune:-rel.detune));
+   tone(pB.freq*2,t,.28,.018,"sine",rel.harmonic?0:(referenceB.x>=referenceA.x?rel.detune:-rel.detune));
+ }
 }
-function bellChord(pA,pB,rel,t=audioCtx.currentTime){
+function bellChord(pA,pB,rel,t=audioCtx.currentTime,bus="merc"){
+ if(!busAllowed(bus)) return;
  flashEvent("bell");
- const base=Math.min(pA.freq,pB.freq);
- [[1,.18,2.8],[2,.065,2.2],[2.72,.05,1.9],[3.93,.04,1.5]].forEach(([r,g,d])=>tone(base*r,t,d,g,"sine",0));
- if(voiceAOn) tone(pA.freq,t,2.4,.09,"sine",0);
- if(voiceBOn) tone(pB.freq,t,2.4,.08,"sine",rel.harmonic?0:(referenceB.x>=referenceA.x?rel.detune:-rel.detune));
+ if(voiceAOn){
+   tone(pA.freq,t,2.4,.10,"sine",0);
+   tone(pA.freq*2,t,1.9,.05,"sine",0);
+   tone(pA.freq*2.72,t,1.45,.03,"sine",0);
+ }
+ if(voiceBOn){
+   const d=rel.harmonic?0:(referenceB.x>=referenceA.x?rel.detune:-rel.detune);
+   tone(pB.freq,t,2.4,.09,"sine",d);
+   tone(pB.freq*2,t,1.9,.045,"sine",d);
+   tone(pB.freq*2.72,t,1.45,.028,"sine",d);
+ }
 }
 
 function threshold(){return +$("#bellThreshold").value}
@@ -103,32 +121,34 @@ function currentHarmony(){
  const rel=relationState(lastScoreA||0,lastScoreB||0);
  return {pA,pB,rel};
 }
-async function ringBell(source="closure"){
- await ensureAudio();const {pA,pB,rel}=currentHarmony();bellChord(pA,pB,rel,audioCtx.currentTime);
+async function ringBell(source="closure",bus="merc"){
+ await ensureAudio();const {pA,pB,rel}=currentHarmony();bellChord(pA,pB,rel,audioCtx.currentTime,bus);
  $("#bellStatusPad").classList.add("active");setTimeout(()=>$("#bellStatusPad").classList.remove("active"),420);log(`BELL · ${source} · ${intervalLabel(pA,pB)}`);
 }
-async function soundEvent(type,source="manual",record=true){
+async function soundEvent(type,source="manual",record=true,bus="merc"){
  await ensureAudio();
  if(type==="click")click();
- else if(type==="ding"){const {pA,pB,rel}=currentHarmony();dingPair(pA,pB,rel)}
+ else if(type==="ding"){const {pA,pB,rel}=currentHarmony();dingPair(pA,pB,rel,audioCtx.currentTime,bus)}
  else if(type==="nobell")noBell();
  if(record){eventTrain.push(type);renderTrain()}
  log(`${type.toUpperCase()} · ${source}`);
 }
 async function addEvent(type){
  if(type==="bell")return;
- if(type==="nobell"){liveEnergy=0;await soundEvent(type,"manual",true);return}
- liveEnergy+=contribution(type,eventTrain.length);await soundEvent(type,"manual",true);
+ if(type==="nobell"){liveEnergy=0;await soundEvent(type,"manual",true,"merc");return}
+ liveEnergy+=contribution(type,eventTrain.length);await soundEvent(type,"manual",true,"merc");
  if(liveEnergy>=threshold()){await ringBell("live threshold");liveEnergy=0}
 }
 $$(".pad[data-sound]").forEach(b=>b.addEventListener("click",()=>addEvent(b.dataset.sound)));
-$$("[data-perf-sound]").forEach(b=>b.addEventListener("click",()=>{if($("#armPads").checked)soundEvent(b.dataset.perfSound,"performance pad",false)}));
+$$("[data-perf-sound]").forEach(b=>b.addEventListener("click",()=>{if($("#armPads").checked)soundEvent(b.dataset.perfSound,"performance pad",false,"merc")}));
 
 
 function syncVoiceButtons(){
-  ["#ocarinaMuteA","#performMuteA"].forEach(s=>{const b=$(s);if(b){b.textContent=`A Voice: ${voiceAOn?"ON":"MUTED"}`;b.classList.toggle("muted",!voiceAOn)}});
-  ["#ocarinaMuteB","#performMuteB"].forEach(s=>{const b=$(s);if(b){b.textContent=`B Voice: ${voiceBOn?"ON":"MUTED"}`;b.classList.toggle("muted",!voiceBOn)}});
-  const a=$("#muteA"),b=$("#muteB"); if(a)a.checked=!voiceAOn;if(b)b.checked=!voiceBOn;
+  ["#ocarinaMuteA","#performMuteA"].forEach(s=>{const b=$(s);if(b){b.textContent=`A: ${voiceAOn?"ON":"MUTED"}`;b.classList.toggle("muted",!voiceAOn)}});
+  ["#ocarinaMuteB","#performMuteB"].forEach(s=>{const b=$(s);if(b){b.textContent=`B: ${voiceBOn?"ON":"MUTED"}`;b.classList.toggle("muted",!voiceBOn)}});
+  const a=$("#muteA"),b=$("#muteB");
+  if(a)a.checked=!voiceAOn;
+  if(b)b.checked=!voiceBOn;
 }
 function toggleVoice(which){
   if(which==="A") voiceAOn=!voiceAOn; else voiceBOn=!voiceBOn;
@@ -181,9 +201,9 @@ async function playTrain(events,token,cycle=0,kind="transport"){
   const valid=kind==="transport"?token===transportToken:token===performanceToken;if(!valid)return false;
   const type=events[i];await ensureAudio();
   if(type==="click"){click();e+=contribution(type,ord++)}
-  else if(type==="ding"){const h=currentHarmony();dingPair(h.pA,h.pB,h.rel);e+=contribution(type,ord++)}
+  else if(type==="ding"){const h=currentHarmony();dingPair(h.pA,h.pB,h.rel,audioCtx.currentTime,"merc");e+=contribution(type,ord++)}
   else{noBell();e=0;ord=0}
-  if(e>=threshold()){await sleep(65,token,kind);const still=kind==="transport"?token===transportToken:token===performanceToken;if(!still)return false;await ringBell(`${kind} threshold`);e=0;ord=0}
+  if(e>=threshold()){await sleep(65,token,kind);const still=kind==="transport"?token===transportToken:token===performanceToken;if(!still)return false;await ringBell(`${kind} threshold`,"merc");e=0;ord=0}
   if(kind==="transport")$("#loopStatus").textContent=`Cycle ${cycle+1} · energy ${e.toFixed(2)} / ${threshold().toFixed(1)}`;
   if(!(await sleep(durationFor(type)*1000,token,kind)))return false;
  }
@@ -269,7 +289,7 @@ function setReference(canvas,e){
 $("#resetReferences").onclick=()=>{referenceA={x:.38,y:.5};referenceB={x:.62,y:.5};updateReadouts()};
 
 async function maybeScanEvent(now,performanceVisible){
- if(!audioUnlocked||muted)return;
+ if(!audioUnlocked)return;
  const rate=+$("#scanRate").value;
  if(now-lastScanEvent<rate)return;
  const combined=(lastScoreA+lastScoreB)/2,rel=relationState(lastScoreA,lastScoreB);
@@ -279,11 +299,11 @@ async function maybeScanEvent(now,performanceVisible){
    lastScanEvent=now;lastScanClass=cls;
    const inGeometry=$("#geometryView").classList.contains("active");
    const inPerform=$("#performView").classList.contains("active")&&$("#armGeometry").checked;
-   if(!(inGeometry||inPerform))return;
+   if(!(inGeometry||inPerform)||!geometryBusOn)return;
    if(cls==="click"){click();scanEnergy+=.55}
-   else{const h=currentHarmony();dingPair(h.pA,h.pB,h.rel);scanEnergy+=.85}
+   else{const h=currentHarmony();dingPair(h.pA,h.pB,h.rel,audioCtx.currentTime,"geometry");scanEnergy+=.85}
    if(inPerform&&captureActive){captureEvents.push(cls);renderCapturePath()}
-   if(scanEnergy>=threshold()){await ringBell("geometry closure");scanEnergy=0;if(inPerform&&captureActive){captureEvents.push("bell");renderCapturePath()}}
+   if(scanEnergy>=threshold()){await ringBell("geometry closure","geometry");scanEnergy=0;if(inPerform&&captureActive){captureEvents.push("bell");renderCapturePath()}}
  }
 }
 function renderCapturePath(){
@@ -323,7 +343,17 @@ function renderPerformTracks(){
 }
 function audibleTracks(){const solo=savedTrains.filter(t=>t.solo&&!t.muted);return solo.length?solo:savedTrains.filter(t=>!t.muted)}
 function stopPerformance(){performanceToken++;performanceLooping=false;$("#loopSelected").classList.remove("active")}
-$("#stopPerformance").onclick=stopPerformance;
+
+
+function syncBusButtons(){
+  const g=$("#muteGeometry");
+  if(g){g.textContent=geometryBusOn?"Mute Geometry":"Listen Geometry";g.classList.toggle("muted",!geometryBusOn)}
+  const m=$("#muteMercs");
+  if(m){m.textContent=mercBusOn?"Mute Mercs":"Listen Mercs";m.classList.toggle("muted",!mercBusOn)}
+}
+on("#muteGeometry","click",()=>{geometryBusOn=!geometryBusOn;syncBusButtons()});
+on("#muteMercs","click",()=>{mercBusOn=!mercBusOn;syncBusButtons()});
+
 async function playStack(loop=false){
  const Mercs=audibleTracks();if(!Mercs.length)return;stopPerformance();performanceLooping=loop;const token=++performanceToken;if(loop)$("#loopSelected").classList.add("active");
  do{await Promise.all(Mercs.map((tr,i)=>new Promise(res=>setTimeout(()=>playTrain(tr.events,token,0,"performance").then(res),i*35))))}while(loop&&performanceLooping&&token===performanceToken)
@@ -331,7 +361,7 @@ async function playStack(loop=false){
 $("#playSelected").onclick=()=>playStack(false);
 $("#loopSelected").onclick=()=>{if(performanceLooping)stopPerformance();else playStack(true)};
 
-renderTrain();renderSaved();drawPerformIncidence();updateReadouts();syncVoiceButtons();loadCore();
+renderTrain();renderSaved();drawPerformIncidence();updateReadouts();syncVoiceButtons();syncBusButtons();loadCore();
 
 
-console.info("[MARL] Musical Atlas Relational Lattice v1.1 booted");
+console.info("[MARL] Musical Atlas Relational Lattice v1.2 booted");
