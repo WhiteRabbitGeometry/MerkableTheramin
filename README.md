@@ -1,4 +1,4 @@
-# Musical Atlas Relational Lattice — v1.1
+# Musical Atlas Relational Lattice — v1.2
 
 Official public working-model release.
 
@@ -28,7 +28,7 @@ Together:
 
 This preserves connectivity without collapsing the lattice into universal equivalence.
 
-## v1.1 UI changes
+## v1.2 UI changes
 
 - `ROCK: PETRIFIED`
 - `BELL BRIDGE: NO BELL`
@@ -57,3 +57,13 @@ Replace the full contents of the GitHub Pages repository with this package in on
 After merge/deploy, hard refresh once on devices that previously loaded older releases.
 
 No build step or external libraries are required.
+
+
+## v1.2 audio-routing correction
+
+- Geometry is continuous and cannot be stopped.
+- Perform `Stop` is replaced by **Mute Geometry / Listen Geometry**.
+- A separate **Mute Mercs / Listen Mercs** isolates saved/event-train playback.
+- A and B are now muted at source generation rather than only through UI state.
+- A/B mute state remains synchronized across Geometry, Ocarina, and Perform.
+- `auto-sonify geometry` is the automatic Click/Ding scanner toggle.

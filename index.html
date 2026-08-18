@@ -7,7 +7,7 @@
   <title>Musical Atlas Relational Lattice · Atlas Relational Ocarina · Merkable Theramin</title>
   <meta name="description" content="Playable Atlas Lattice relational-geometry instrument.">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=1.1.0">
+  <link rel="stylesheet" href="styles.css?v=1.2.0">
 </head>
 <body>
 <header class="topbar">
@@ -17,9 +17,8 @@
   </div>
   <div class="statusline">
     <span class="status established">ROCK: PETRIFIED</span>
-    <span class="status">MODEL: v1.1</span>
+    <span class="status">MODEL: v1.2</span>
     <span class="status no-bell">BELL BRIDGE: NO BELL</span>
-    <button id="muteButton" class="audio-button" aria-pressed="false">🔊 Sound On</button>
   </div>
 </header>
 
@@ -63,7 +62,7 @@
       <label><input id="muteA" type="checkbox"> mute A</label>
       <label><input id="muteB" type="checkbox"> mute B</label>
       <label><input id="autoScan" type="checkbox" checked> rotate</label>
-      <label><input id="sonifyScan" type="checkbox" checked> sonify scan</label>
+      <label title="Automatically sound Click/Ding events when the rotating geometry crosses registration bands"><input id="sonifyScan" type="checkbox" checked> auto-sonify geometry</label>
       <label><input id="showAxes" type="checkbox" checked> C₅ axes</label>
     </div>
     <canvas id="geoCanvas" width="1000" height="700" aria-label="Counter-rotating mirrored dodecahedral shells"></canvas>
@@ -79,8 +78,8 @@
 
   <section id="ocarinaView" class="panel">
     <div class="ab-mixer">
-      <button id="ocarinaMuteA" class="ab-voice">A Voice: ON</button>
-      <button id="ocarinaMuteB" class="ab-voice">B Voice: ON</button>
+      <button id="ocarinaMuteA" class="ab-voice">A: ON</button>
+      <button id="ocarinaMuteB" class="ab-voice">B: ON</button>
     </div>
     <div class="instrument-grid">
       <button class="pad click-pad" data-sound="click">CLICK</button>
@@ -128,15 +127,16 @@
       <div class="transport">
         <button id="playSelected">Play Selected</button>
         <button id="loopSelected">Loop Selected</button>
-        <button id="stopPerformance">Stop</button>
+        <button id="muteGeometry">Mute Geometry</button>
+        <button id="muteMercs">Mute Mercs</button>
         <button id="captureReference">Capture Reference</button>
         <button id="stopCapture" disabled>Stop Capture</button>
       </div>
     </div>
 
     <div class="perform-mixer">
-      <button id="performMuteA" class="ab-voice">A Voice: ON</button>
-      <button id="performMuteB" class="ab-voice">B Voice: ON</button>
+      <button id="performMuteA" class="ab-voice">A: ON</button>
+      <button id="performMuteB" class="ab-voice">B: ON</button>
       <label><input id="armGeometry" type="checkbox" checked> Geometry refs</label>
       <label><input id="armIncidence" type="checkbox" checked> Incidence</label>
       <label><input id="armPads" type="checkbox" checked> Live pads</label>
@@ -193,7 +193,7 @@
 </main>
 
 <footer>
-  <span>Musical Atlas Relational Lattice · v1.1</span>
+  <span>Musical Atlas Relational Lattice · v1.2</span>
   <span id="coreRevision"></span>
 </footer>
 
@@ -223,6 +223,6 @@
 })();
 </script>
 
-<script src="app.js?v=1.1.0"></script>
+<script src="app.js?v=1.2.0"></script>
 </body>
 </html>
