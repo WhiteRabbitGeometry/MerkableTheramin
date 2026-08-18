@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0a0a0d">
+  <title>Atlas Lattice Ocarina</title>
+  <meta name="description" content="Playable relational-geometry instrument and Atlas Lattice display model.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">THE ATLAS LATTICE</div>
+      <h1>Ocarina</h1>
+    </div>
+    <div class="statusline">
+      <span class="status established">CORE: FROZEN</span>
+      <span class="status no-bell">BRIDGE: NO BELL</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="intro">
+      <p>A playable display model of the frozen Atlas Lattice core. Mathematics controls the map. Sound reflects state; it does not determine truth.</p>
+      <div class="mode-row">
+        <button class="mode active" data-mode="explore">Explore</button>
+        <button class="mode" data-mode="perform">Perform</button>
+        <button id="audioEnable">Enable Audio</button>
+      </div>
+    </section>
+
+    <section class="metrics" id="metrics"></section>
+
+    <section class="workbench">
+      <div class="view-tabs">
+        <button class="tab active" data-view="incidence">2D Incidence</button>
+        <button class="tab" data-view="geometry">3D Geometry</button>
+        <button class="tab" data-view="instrument">Ocarina</button>
+      </div>
+
+      <div id="incidenceView" class="panel active">
+        <svg id="incidenceSvg" viewBox="0 0 900 650" role="img" aria-label="Atlas Lattice 2D incidence model">
+          <g id="c3Edges"></g>
+          <g id="a4Nodes"></g>
+          <g id="c5Nodes"></g>
+          <g id="bridgeSocket"></g>
+        </svg>
+        <div class="legend">
+          <span><i class="dot established-dot"></i>A₄ sector</span>
+          <span><i class="dot computed-dot"></i>C₅ gate frame</span>
+          <span><i class="line-dot"></i>C₃ relation</span>
+          <span><i class="dash-dot"></i>open C₂ attachment</span>
+        </div>
+      </div>
+
+      <div id="geometryView" class="panel">
+        <div class="controls">
+          <label>Speed A <input id="speedA" type="range" min="-2" max="2" value="0.55" step="0.01"></label>
+          <label>Speed B <input id="speedB" type="range" min="-2" max="2" value="-0.55" step="0.01"></label>
+          <label>Ripple <input id="ripple" type="range" min="0" max="0.20" value="0.03" step="0.005"></label>
+          <label><input id="autoScan" type="checkbox" checked> auto scan</label>
+          <label><input id="showAxes" type="checkbox" checked> C₅ axes</label>
+        </div>
+        <canvas id="geoCanvas" width="1000" height="700" aria-label="Counter-rotating mirrored dodecahedral shells"></canvas>
+        <p class="caption">The two carriers counter-rotate. The bare regular dodecahedron is not itself treated as chiral; the paired frames carry the mirror relation.</p>
+      </div>
+
+      <div id="instrumentView" class="panel">
+        <div class="instrument-grid">
+          <button class="pad click-pad" data-sound="click">CLICK</button>
+          <button class="pad ding-pad" data-sound="ding">DING</button>
+          <button class="pad bell-pad" data-sound="bell">BELL</button>
+          <button class="pad no-bell-pad" data-sound="nobell">NO BELL</button>
+        </div>
+        <div class="sequencer">
+          <div class="seq-header">
+            <strong>Event Train</strong>
+            <div>
+              <button id="playSeq">Play</button>
+              <button id="clearSeq">Clear</button>
+            </div>
+          </div>
+          <div id="eventTrain" aria-live="polite"></div>
+        </div>
+        <div class="controls">
+          <label>Tempo <input id="tempo" type="range" min="50" max="220" value="108"></label>
+          <label>Bell threshold <input id="bellThreshold" type="range" min="2" max="16" value="8"></label>
+          <label>Integration growth <input id="growth" type="range" min="1.05" max="2.5" value="1.45" step="0.05"></label>
+        </div>
+        <p class="caption">In Explore mode, the Bell only fires when accumulated integration crosses threshold. In Perform mode, the pads are direct musical controls.</p>
+      </div>
+    </section>
+
+    <section class="eventlog">
+      <div class="eventlog-head">
+        <strong>Registration Log</strong>
+        <button id="clearLog">Clear</button>
+      </div>
+      <div id="log"></div>
+    </section>
+
+    <section class="principle">
+      <strong>Bell / No Bell</strong>
+      <p>A Click can be exciting without being true. A Bell means closure. No Bell means the tested relation did not earn propagation.</p>
+    </section>
+  </main>
+
+  <footer>
+    <span>Atlas Lattice Ocarina · static GitHub Pages build</span>
+    <span id="coreRevision"></span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
