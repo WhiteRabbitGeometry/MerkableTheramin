@@ -3,179 +3,121 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#09090c">
-  <title>Atlas Lattice Relational Ocarina (Merkable Theramin)</title>
-  <meta name="description" content="Playable Atlas Lattice relational-geometry instrument.">
+  <meta name="theme-color" content="#0a0a0d">
+  <title>Atlas Lattice Ocarina</title>
+  <meta name="description" content="Playable relational-geometry instrument and Atlas Lattice display model.">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<header class="topbar">
-  <div>
-    <div class="eyebrow">THE MUSICAL ATLAS RELATIONAL LATTICE</div>
-    <h1>Ocarina <span class="subtitle">(Merkabarina, aka Merkable Theramin)</span></h1>
-  </div>
-  <div class="statusline">
-    <span class="status established">CORE: FROZEN</span>
-    <span class="status no-bell">BRIDGE: NO BELL</span>
-    <button id="muteButton" class="audio-button" aria-pressed="false">🔊 Sound On</button>
-  </div>
-</header>
-
-<main>
-<section class="intro">
-  <p>A playable display model of the Atlas Lattice. Mathematics controls the map. Sound reflects state; it does not determine truth.</p>
-  <div id="audioHint" class="audio-hint">Sound unlocks automatically on your first interaction.</div>
-</section>
-
-<section class="metrics" id="metrics"></section>
-
-<section class="workbench">
-  <div class="view-tabs">
-    <button class="tab active" data-view="incidence">2D Incidence</button>
-    <button class="tab" data-view="geometry">3D Geometry</button>
-    <button class="tab" data-view="ocarina">Ocarina</button>
-    <button class="tab perform-tab" data-view="perform">Perform</button>
-  </div>
-
-  <section id="incidenceView" class="panel active">
-    <svg id="incidenceSvg" viewBox="0 0 900 650" role="img" aria-label="Atlas Lattice 2D incidence model"></svg>
-    <div class="legend">
-      <span><i class="dot established-dot"></i>A₄ sector</span>
-      <span><i class="dot computed-dot"></i>C₅ gate frame</span>
-      <span><i class="line-dot"></i>C₃ relation</span>
-      <span><i class="dash-dot"></i>open C₂ attachment</span>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">THE ATLAS LATTICE</div>
+      <h1>Ocarina</h1>
     </div>
-  </section>
-
-  <section id="geometryView" class="panel">
-    <div class="controls">
-      <label>Speed A <input id="speedA" type="range" min="-2" max="2" value="0.55" step="0.01"></label>
-      <label>Speed B <input id="speedB" type="range" min="-2" max="2" value="-0.55" step="0.01"></label>
-      <label>Ripple <input id="ripple" type="range" min="0" max="0.20" value="0.03" step="0.005"></label>
-      <label>Scan rate <input id="scanRate" type="range" min="80" max="1200" value="320" step="20"></label>
-      <label><input id="autoScan" type="checkbox" checked> rotate</label>
-      <label><input id="sonifyScan" type="checkbox" checked> sonify scan</label>
-      <label><input id="showAxes" type="checkbox" checked> C₅ axes</label>
+    <div class="statusline">
+      <span class="status established">CORE: FROZEN</span>
+      <span class="status no-bell">BRIDGE: NO BELL</span>
     </div>
-    <canvas id="geoCanvas" width="1000" height="700" aria-label="Counter-rotating mirrored dodecahedral shells"></canvas>
-    <div class="geometry-readout">
-      <span>A ref: <b id="refAReadout">0.38, 0.50</b></span>
-      <span>B ref: <b id="refBReadout">0.62, 0.50</b></span>
-      <span>Interval: <b id="intervalReadout">—</b></span>
-      <span>Relation: <b id="relationReadout">—</b></span>
-      <button id="resetReferences">Reset references</button>
-    </div>
-    <p class="caption">Drag the gold A and blue B reference points. Each point selects a pentatonic degree and octave; their relative shell phase controls harmonic lock versus dissonant detuning. This view is audible but never records.</p>
-  </section>
+  </header>
 
-  <section id="ocarinaView" class="panel">
-    <div class="instrument-grid">
-      <button class="pad click-pad" data-sound="click">CLICK</button>
-      <button class="pad ding-pad" data-sound="ding">DING</button>
-      <button class="pad bell-pad bell-locked" id="bellStatusPad" disabled>BELL<br><small>threshold only</small></button>
-      <button class="pad no-bell-pad" data-sound="nobell">NO BELL</button>
-    </div>
-
-    <div class="sequencer">
-      <div class="seq-header">
-        <strong>Event Train</strong>
-        <div class="transport">
-          <button id="playSeq">Play Once</button>
-          <button id="loopSeq">Loop</button>
-          <button id="stopSeq">Stop</button>
-          <button id="saveSeq">Save Train</button>
-          <button id="clearSeq">Clear</button>
-        </div>
+  <main>
+    <section class="intro">
+      <p>A playable display model of the frozen Atlas Lattice core. Mathematics controls the map. Sound reflects state; it does not determine truth.</p>
+      <div class="mode-row">
+        <button class="mode active" data-mode="explore">Explore</button>
+        <button class="mode" data-mode="perform">Perform</button>
+        <button id="audioEnable">Enable Audio</button>
       </div>
-      <div id="eventTrain" class="event-chips" aria-live="polite"></div>
-      <div id="loopStatus" class="loop-status">Stopped</div>
-    </div>
+    </section>
 
-    <div class="controls modulation-controls">
-      <label>Base tempo <input id="tempo" type="range" min="40" max="220" value="108"><output id="tempoOut">108</output></label>
-      <label>Click rate <input id="clickRate" type="range" min="0.25" max="4" value="1" step="0.05"><output id="clickRateOut">1.00×</output></label>
-      <label>Ding rate <input id="dingRate" type="range" min="0.25" max="4" value="1" step="0.05"><output id="dingRateOut">1.00×</output></label>
-      <label>No-Bell rate <input id="noBellRate" type="range" min="0.25" max="4" value="1" step="0.05"><output id="noBellRateOut">1.00×</output></label>
-      <label>Bell threshold <input id="bellThreshold" type="range" min="2" max="32" value="8" step="0.5"><output id="bellThresholdOut">8.0</output></label>
-      <label>Integration growth <input id="growth" type="range" min="1" max="2.5" value="1.45" step="0.05"><output id="growthOut">1.45×</output></label>
-    </div>
+    <section class="metrics" id="metrics"></section>
 
-    <div class="saved-section">
-      <div class="seq-header"><strong>Saved Trains — current session only</strong></div>
-      <div id="savedTrains" class="saved-trains"></div>
-    </div>
-  </section>
-
-  <section id="performView" class="panel">
-    <div class="perform-head">
-      <div>
-        <h2>Performance Deck</h2>
-        <p>Saved trains + live pads + live geometry references. Only armed layers reach the Performance Bus.</p>
-      </div>
-      <div class="transport">
-        <button id="playSelected">Play Selected</button>
-        <button id="loopSelected">Loop Selected</button>
-        <button id="stopPerformance">Stop</button>
-        <button id="captureReference">Capture Reference</button>
-        <button id="stopCapture" disabled>Stop Capture</button>
-      </div>
-    </div>
-
-    <div class="perform-mixer">
-      <label><input id="armGeometry" type="checkbox" checked> Geometry refs</label>
-      <label><input id="armIncidence" type="checkbox" checked> Incidence</label>
-      <label><input id="armPads" type="checkbox" checked> Live pads</label>
-      <label><input id="showTrails" type="checkbox" checked> Ref trails</label>
-      <label><input id="showEventPath" type="checkbox" checked> Event path</label>
-    </div>
-
-    <div class="perform-grid">
-      <div class="perform-card">
-        <h3>Incidence</h3>
-        <svg id="performIncidenceSvg" viewBox="0 0 900 650" aria-label="Performance incidence model"></svg>
+    <section class="workbench">
+      <div class="view-tabs">
+        <button class="tab active" data-view="incidence">2D Incidence</button>
+        <button class="tab" data-view="geometry">3D Geometry</button>
+        <button class="tab" data-view="instrument">Ocarina</button>
       </div>
 
-      <div class="perform-card">
-        <h3>Geometry Theremin</h3>
-        <canvas id="performGeoCanvas" width="1000" height="700" aria-label="Performance geometry"></canvas>
-        <div class="geometry-readout compact">
-          <span>Live interval: <b id="performInterval">—</b></span>
-          <span>Relation: <b id="performRelation">—</b></span>
-          <span>Capture: <b id="captureStatus">off</b></span>
+      <div id="incidenceView" class="panel active">
+        <svg id="incidenceSvg" viewBox="0 0 900 650" role="img" aria-label="Atlas Lattice 2D incidence model">
+          <g id="c3Edges"></g>
+          <g id="a4Nodes"></g>
+          <g id="c5Nodes"></g>
+          <g id="bridgeSocket"></g>
+        </svg>
+        <div class="legend">
+          <span><i class="dot established-dot"></i>A₄ sector</span>
+          <span><i class="dot computed-dot"></i>C₅ gate frame</span>
+          <span><i class="line-dot"></i>C₃ relation</span>
+          <span><i class="dash-dot"></i>open C₂ attachment</span>
         </div>
       </div>
 
-      <div class="perform-card perform-tracks">
-        <h3>Tracks</h3>
-        <div id="performTracks"></div>
-        <div class="perform-pads">
-          <button class="mini-pad" data-perf-sound="click">CLICK</button>
-          <button class="mini-pad" data-perf-sound="ding">DING</button>
-          <button class="mini-pad" data-perf-sound="nobell">NO BELL</button>
+      <div id="geometryView" class="panel">
+        <div class="controls">
+          <label>Speed A <input id="speedA" type="range" min="-2" max="2" value="0.55" step="0.01"></label>
+          <label>Speed B <input id="speedB" type="range" min="-2" max="2" value="-0.55" step="0.01"></label>
+          <label>Ripple <input id="ripple" type="range" min="0" max="0.20" value="0.03" step="0.005"></label>
+          <label><input id="autoScan" type="checkbox" checked> auto scan</label>
+          <label><input id="showAxes" type="checkbox" checked> C₅ axes</label>
         </div>
-        <div id="capturedEventPath" class="captured-path"></div>
+        <canvas id="geoCanvas" width="1000" height="700" aria-label="Counter-rotating mirrored dodecahedral shells"></canvas>
+        <p class="caption">The two carriers counter-rotate. The bare regular dodecahedron is not itself treated as chiral; the paired frames carry the mirror relation.</p>
       </div>
-    </div>
-  </section>
-</section>
 
-<section class="eventlog">
-  <div class="eventlog-head"><strong>Registration Log</strong><button id="clearLog">Clear</button></div>
-  <div id="log"></div>
-</section>
+      <div id="instrumentView" class="panel">
+        <div class="instrument-grid">
+          <button class="pad click-pad" data-sound="click">CLICK</button>
+          <button class="pad ding-pad" data-sound="ding">DING</button>
+          <button class="pad bell-pad bell-locked" id="bellStatusPad" type="button" disabled>BELL<br><small>threshold only</small></button>
+          <button class="pad no-bell-pad" data-sound="nobell">NO BELL</button>
+        </div>
+        <div class="sequencer">
+          <div class="seq-header">
+            <strong>Event Train</strong>
+            <div class="transport">
+              <button id="playSeq">Play Once</button>
+              <button id="loopSeq">Loop</button>
+              <button id="stopSeq">Stop</button>
+              <button id="clearSeq">Clear</button>
+            </div>
+          </div>
+          <div id="eventTrain" aria-live="polite"></div>
+          <div id="loopStatus" class="loop-status">Stopped</div>
+        </div>
+        <div class="controls modulation-controls">
+          <label>Base tempo <input id="tempo" type="range" min="40" max="220" value="108"><output id="tempoOut">108</output></label>
+          <label>Click rate <input id="clickRate" type="range" min="0.25" max="4" value="1" step="0.05"><output id="clickRateOut">1.00×</output></label>
+          <label>Ding rate <input id="dingRate" type="range" min="0.25" max="4" value="1" step="0.05"><output id="dingRateOut">1.00×</output></label>
+          <label>No-Bell rate <input id="noBellRate" type="range" min="0.25" max="4" value="1" step="0.05"><output id="noBellRateOut">1.00×</output></label>
+          <label>Bell threshold <input id="bellThreshold" type="range" min="2" max="32" value="8" step="0.5"><output id="bellThresholdOut">8.0</output></label>
+          <label>Integration growth <input id="growth" type="range" min="1.00" max="2.5" value="1.45" step="0.05"><output id="growthOut">1.45×</output></label>
+        </div>
+        <p class="caption">Program Clicks, Dings, and No-Bells. Bell is never stored in the sequence: it emerges during playback when the live integration threshold is crossed. Change the sliders while the loop is playing and the next events respond immediately.</p>
+      </div>
+    </section>
 
-<section class="principle">
-  <strong>Bell / No Bell</strong>
-  <p>You can compose the evidence. You cannot compose the conclusion. Bell is never written directly into a train.</p>
-</section>
-</main>
+    <section class="eventlog">
+      <div class="eventlog-head">
+        <strong>Registration Log</strong>
+        <button id="clearLog">Clear</button>
+      </div>
+      <div id="log"></div>
+    </section>
 
-<footer>
-  <span>Atlas Lattice Relational Ocarina (Merkable Theramin) · v0.4</span>
-  <span id="coreRevision"></span>
-</footer>
+    <section class="principle">
+      <strong>Bell / No Bell</strong>
+      <p>A Click can be exciting without being true. A Bell means closure. No Bell means the tested relation did not earn propagation.</p>
+    </section>
+  </main>
 
-<script src="app.js"></script>
+  <footer>
+    <span>Atlas Lattice Ocarina · static GitHub Pages build</span>
+    <span id="coreRevision"></span>
+  </footer>
+
+  <script src="app.js"></script>
 </body>
 </html>
