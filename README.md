@@ -1,57 +1,59 @@
-# Musical Atlas Relational Lattice — v1.0
+# Musical Atlas Relational Lattice — v1.1
 
-Official first public working-model release of the playable Musical Atlas Relational Lattice.
+Official public working-model release.
 
-## Naming hierarchy
+## Naming
 
-- **Musical Atlas Relational Lattice** — core infrastructure.
-- **Merkabarina** — the function produced by the relative movement of the relational structures.
-- **Atlas Relational Ocarina** — the instrument created from persistent observation of Merkabarina events.
-- **Merkable Theramin** — the mixer/performance function that combines live geometry, incidence, event trains, and reference-point performance.
-- **Merk** — planned persistent musical stem / saved relational phrase.
-- **re-Merk** — a Merk reused, transformed, layered, or remixed.
-- **Re-Merkable Theramin** — planned future persistent/import-export version.
+- **Musical Atlas Relational Lattice** — infrastructure.
+- **ROCK / Petrified Core** — invariant inner lattice.
+- **Rick** — dynamic outer relational system.
+- **Merkabarina** — relative-motion function.
+- **Atlas Relational Ocarina** — instrument produced from persistent Merkabarina observation.
+- **Merkable Theramin** — internal-field performance/mixer layer.
+- **Merc** — reusable/adaptive relational musical unit.
+- **Joker** — irreducible connective participle.
+- **Bell Bridge** — recurrent bridge relation revealed by Bell sequences.
 
-`Theramin` with an **A** is intentionally the internal-field instrument term. Conventional `Theremin` with an **E** remains the external-field instrument.
+## Merc / Joker logic
 
-## v1.0 views
+A Merc is treated as an **OR unit**: it can stand alone and adapt among alternative contexts.
 
-1. **2D Incidence**
-2. **3D Geometry**
-3. **Ocarina**
-4. **Perform**
+A Joker is treated as an **AND unit**: it carries the irreducible connective relation.
 
-The standalone exploratory layers are solo surfaces. Perform is the explicit mixer.
+Only Mercs connect to Jokers by default. Joker is not universal glue.
 
-## Musical behavior
+Together:
 
-- Two movable reference points select pentatonic degrees and octaves.
-- Relative geometry contributes harmonic lock or controlled dissonance.
-- Geometry generates Click/Ding observations automatically.
-- Bell is never directly programmable; it emerges only when integration crosses threshold.
-- Ocarina event trains may be reordered, looped, and saved for the current session.
-- Perform mixes saved trains, live pads, incidence, and live geometry references.
-- Reference-generated phrases may be captured as event trains.
-- Captured Bell events are displayed but are not stored as direct Bell instructions.
+`Merc + Joker = AND–OR interstice`
 
-## v1.0 reliability changes
+This preserves connectivity without collapsing the lattice into universal equivalence.
 
-v0.4 exposed a deployment/cache failure mode: a browser could temporarily receive the new `index.html` while still using an older cached `app.js`, causing the old script to fail on controls that no longer existed.
+## v1.1 UI changes
 
-v1.0 therefore adds:
+- `ROCK: PETRIFIED`
+- `BELL BRIDGE: NO BELL`
+- Removed runtime dependency on `data/core.json`; public petrified metrics are compiled directly into the release.
+- A and B voices can be muted independently in Geometry, Ocarina, and Perform.
+- Geometry continues rotating even when a voice is muted.
+- Numeric readouts added for Speed A, Speed B, Ripple, and Scan Rate.
+- Ripple is bipolar around homeostasis (`negative ↔ 0 ↔ positive`).
+- `Tracks` renamed to **Mercs** in the public interface.
+- Live CLICK / DING / BELL / NO BELL words visibly flash when events fire.
+- Perform remains the merged performance surface.
 
-- cache-busted `styles.css?v=1.0.0` and `app.js?v=1.0.0`;
-- no-store loading of `core.json?v=1.0.0`;
-- a fail-safe tab router embedded in `index.html`;
-- defensive optional-control binding;
-- runtime diagnostics that do not disable basic navigation.
+## Petrified public metrics
 
-The display should therefore remain navigable even if an individual audio/geometry module reports an error.
+- A₄ sectors: 5
+- C₃ bridges: 10
+- C₅ gate frames: 6
+- minimum A₄→C₅ departure: 72°
+
+These values are compiled into the public model. `data/core.json` remains in the repository as a machine-readable record, but the browser does not need to fetch it to operate.
 
 ## Deployment
 
-Upload the full contents of this directory to the GitHub Pages repository root in one pull request and merge.
+Replace the full contents of the GitHub Pages repository with this package in one pull request.
 
-After GitHub Pages deploys, do one hard refresh on devices that previously loaded v0.4.
+After merge/deploy, hard refresh once on devices that previously loaded older releases.
 
 No build step or external libraries are required.

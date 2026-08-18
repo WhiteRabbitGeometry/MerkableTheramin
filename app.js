@@ -1,13 +1,13 @@
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const on=(selector,event,handler)=>{
   const el=$(selector);
-  if(!el){ console.warn(`[MARL v1.0] missing optional control ${selector}`); return null; }
+  if(!el){ console.warn(`[MARL v1.1] missing optional control ${selector}`); return null; }
   el.addEventListener(event,handler);
   return el;
 };
 const setText=(selector,text)=>{ const el=$(selector); if(el) el.textContent=text; };
 window.addEventListener("error",e=>{
-  console.error("[MARL v1.0 runtime]", e.error || e.message);
+  console.error("[MARL v1.1 runtime]", e.error || e.message);
   const hint=$("#audioHint");
   if(hint) hint.textContent="A module reported an error; basic view navigation remains available.";
 });
@@ -17,24 +17,19 @@ let liveEnergy=0,scanEnergy=0,lastScanEvent=0,lastScanClass="none";
 let captureActive=false,captureEvents=[],captureTrailA=[],captureTrailB=[];
 let referenceA={x:.38,y:.50},referenceB={x:.62,y:.50};
 let activeRef="A";
+let voiceAOn=true,voiceBOn=true;
 
-async function loadCore(){
- try {
- CORE=await fetch("data/core.json?v=1.0.0",{cache:"no-store"}).then(r=>{
-   if(!r.ok) throw new Error(`core.json HTTP ${r.status}`);
-   return r.json();
- });
- $("#coreRevision").textContent=CORE.canonicalCore;
- const c=CORE.core;
- $("#metrics").innerHTML=[["A₄ sectors",c.A4Sectors],["C₃ bridges",c.C3Bridges],["C₅ gate frames",c.C5GateFrames],["A₄→C₅",c.A4ToC5MinimumDegrees+"°"]]
- .map(x=>`<div class="metric"><small>${x[0]}</small><b>${x[1]}</b></div>`).join("");
- } catch(err) {
-   console.error("[MARL v1.0 core load]",err);
-   const metrics=$("#metrics");
-   if(metrics) metrics.innerHTML='<div class="metric"><small>Core data</small><b>LOAD ERROR</b></div>';
- }
+
+function loadCore(){
+  CORE={version:"1.1.0",canonicalCore:"ROCK · PETRIFIED"};
+  const rev=$("#coreRevision"); if(rev) rev.textContent=CORE.canonicalCore;
 }
-
+function flashEvent(type){
+  const ids={click:"#eventClick",ding:"#eventDing",bell:"#eventBell",nobell:"#eventNoBell"};
+  const el=$(ids[type]); if(!el) return;
+  el.classList.add("active");
+  setTimeout(()=>el.classList.remove("active"),180);
+}
 function log(msg){const d=document.createElement("div");d.className="logline";d.textContent=`${new Date().toLocaleTimeString()}  ${msg}`;$("#log").prepend(d)}
 async function ensureAudio(){
  if(!audioCtx){
@@ -64,8 +59,8 @@ function tone(freq,t,dur=.35,gain=.16,type="sine",detune=0){
  const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.setValueAtTime(freq,t);o.detune.setValueAtTime(detune,t);
  g.gain.setValueAtTime(gain,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g).connect(masterGain);o.start(t);o.stop(t+dur);
 }
-function click(t=audioCtx.currentTime){noiseBurst(t,.018,.18);tone(950,t,.035,.055,"square")}
-function noBell(t=audioCtx.currentTime){tone(92,t,.18,.08,"triangle");noiseBurst(t,.05,.06)}
+function click(t=audioCtx.currentTime){flashEvent("click");noiseBurst(t,.018,.18);tone(950,t,.035,.055,"square")}
+function noBell(t=audioCtx.currentTime){flashEvent("nobell");tone(92,t,.18,.08,"triangle");noiseBurst(t,.05,.06)}
 
 const PENTA=[0,2,4,7,9];
 function pentatonicFromRef(ref,root=220){
@@ -87,14 +82,16 @@ function relationState(scoreA,scoreB){
  return {harmonic,detune,phase,diff};
 }
 function dingPair(pA,pB,rel,t=audioCtx.currentTime){
- tone(pA.freq,t,.72,.10,"sine",0);
- tone(pB.freq,t,.72,.09,"sine",rel.harmonic?0:(referenceB.x>=referenceA.x?rel.detune:-rel.detune));
- tone(pA.freq*2,t,.32,.025,"sine",0);
+ flashEvent("ding");
+ if(voiceAOn){tone(pA.freq,t,.72,.10,"sine",0);tone(pA.freq*2,t,.32,.025,"sine",0);}
+ if(voiceBOn){tone(pB.freq,t,.72,.09,"sine",rel.harmonic?0:(referenceB.x>=referenceA.x?rel.detune:-rel.detune));}
 }
 function bellChord(pA,pB,rel,t=audioCtx.currentTime){
+ flashEvent("bell");
  const base=Math.min(pA.freq,pB.freq);
  [[1,.18,2.8],[2,.065,2.2],[2.72,.05,1.9],[3.93,.04,1.5]].forEach(([r,g,d])=>tone(base*r,t,d,g,"sine",0));
- tone(pA.freq,t,2.4,.09,"sine",0);tone(pB.freq,t,2.4,.08,"sine",rel.harmonic?0:(referenceB.x>=referenceA.x?rel.detune:-rel.detune));
+ if(voiceAOn) tone(pA.freq,t,2.4,.09,"sine",0);
+ if(voiceBOn) tone(pB.freq,t,2.4,.08,"sine",rel.harmonic?0:(referenceB.x>=referenceA.x?rel.detune:-rel.detune));
 }
 
 function threshold(){return +$("#bellThreshold").value}
@@ -126,6 +123,23 @@ async function addEvent(type){
 }
 $$(".pad[data-sound]").forEach(b=>b.addEventListener("click",()=>addEvent(b.dataset.sound)));
 $$("[data-perf-sound]").forEach(b=>b.addEventListener("click",()=>{if($("#armPads").checked)soundEvent(b.dataset.perfSound,"performance pad",false)}));
+
+
+function syncVoiceButtons(){
+  ["#ocarinaMuteA","#performMuteA"].forEach(s=>{const b=$(s);if(b){b.textContent=`A Voice: ${voiceAOn?"ON":"MUTED"}`;b.classList.toggle("muted",!voiceAOn)}});
+  ["#ocarinaMuteB","#performMuteB"].forEach(s=>{const b=$(s);if(b){b.textContent=`B Voice: ${voiceBOn?"ON":"MUTED"}`;b.classList.toggle("muted",!voiceBOn)}});
+  const a=$("#muteA"),b=$("#muteB"); if(a)a.checked=!voiceAOn;if(b)b.checked=!voiceBOn;
+}
+function toggleVoice(which){
+  if(which==="A") voiceAOn=!voiceAOn; else voiceBOn=!voiceBOn;
+  syncVoiceButtons();
+}
+on("#ocarinaMuteA","click",()=>toggleVoice("A"));
+on("#ocarinaMuteB","click",()=>toggleVoice("B"));
+on("#performMuteA","click",()=>toggleVoice("A"));
+on("#performMuteB","click",()=>toggleVoice("B"));
+on("#muteA","change",e=>{voiceAOn=!e.target.checked;syncVoiceButtons()});
+on("#muteB","change",e=>{voiceBOn=!e.target.checked;syncVoiceButtons()});
 
 function renderTrain(){
  const box=$("#eventTrain");box.innerHTML="";
@@ -180,6 +194,12 @@ $("#loopSeq").onclick=async()=>{if(isLooping){stopTransport();return}if(!eventTr
 
 function bindOut(id,out,fmt=v=>v){const el=$(id),o=$(out),update=()=>o.textContent=fmt(el.value);el.addEventListener("input",update);update()}
 bindOut("#tempo","#tempoOut",v=>v);bindOut("#clickRate","#clickRateOut",v=>(+v).toFixed(2)+"×");bindOut("#dingRate","#dingRateOut",v=>(+v).toFixed(2)+"×");bindOut("#noBellRate","#noBellRateOut",v=>(+v).toFixed(2)+"×");bindOut("#bellThreshold","#bellThresholdOut",v=>(+v).toFixed(1));bindOut("#growth","#growthOut",v=>(+v).toFixed(2)+"×");
+
+bindOut("#speedA","#speedAOut",v=>(+v).toFixed(2));
+bindOut("#speedB","#speedBOut",v=>(+v).toFixed(2));
+bindOut("#ripple","#rippleOut",v=>(+v).toFixed(3));
+bindOut("#scanRate","#scanRateOut",v=>`${v} ms`);
+
 
 $$(".tab").forEach(b=>b.onclick=()=>{
  const v=b.dataset.view;
@@ -286,10 +306,10 @@ $("#stopCapture").onclick=()=>{if(!captureActive)return;captureActive=false;$("#
  if(musicalEvents.length){savedTrains.push({name:`Ref ${savedTrains.length+1}`,events:musicalEvents,muted:false,solo:false,source:"reference",trailA:[...captureTrailA],trailB:[...captureTrailB]});renderSaved();renderPerformTracks();log("Captured reference became a saved train")}
 };
 
-// performance tracks
+// performance Mercs
 function renderPerformTracks(){
  const box=$("#performTracks");box.innerHTML="";
- if(!savedTrains.length){box.innerHTML='<span class="caption">Save Ocarina trains or capture a reference phrase to create tracks.</span>';return}
+ if(!savedTrains.length){box.innerHTML='<span class="caption">Save Ocarina trains or capture a reference phrase to create Mercs.</span>';return}
  savedTrains.forEach((tr,i)=>{
    const row=document.createElement("div");row.className=`track-row ${tr.muted?"muted":""} ${tr.solo?"solo":""}`;
    row.innerHTML=`<div><strong>${tr.name}</strong> <small>${tr.source||"ocarina"}</small><br><code>${tr.events.join(" · ")}</code></div>
@@ -305,13 +325,13 @@ function audibleTracks(){const solo=savedTrains.filter(t=>t.solo&&!t.muted);retu
 function stopPerformance(){performanceToken++;performanceLooping=false;$("#loopSelected").classList.remove("active")}
 $("#stopPerformance").onclick=stopPerformance;
 async function playStack(loop=false){
- const tracks=audibleTracks();if(!tracks.length)return;stopPerformance();performanceLooping=loop;const token=++performanceToken;if(loop)$("#loopSelected").classList.add("active");
- do{await Promise.all(tracks.map((tr,i)=>new Promise(res=>setTimeout(()=>playTrain(tr.events,token,0,"performance").then(res),i*35))))}while(loop&&performanceLooping&&token===performanceToken)
+ const Mercs=audibleTracks();if(!Mercs.length)return;stopPerformance();performanceLooping=loop;const token=++performanceToken;if(loop)$("#loopSelected").classList.add("active");
+ do{await Promise.all(Mercs.map((tr,i)=>new Promise(res=>setTimeout(()=>playTrain(tr.events,token,0,"performance").then(res),i*35))))}while(loop&&performanceLooping&&token===performanceToken)
 }
 $("#playSelected").onclick=()=>playStack(false);
 $("#loopSelected").onclick=()=>{if(performanceLooping)stopPerformance();else playStack(true)};
 
-renderTrain();renderSaved();drawPerformIncidence();updateReadouts();loadCore();
+renderTrain();renderSaved();drawPerformIncidence();updateReadouts();syncVoiceButtons();loadCore();
 
 
-console.info("[MARL] Musical Atlas Relational Lattice v1.0 booted");
+console.info("[MARL] Musical Atlas Relational Lattice v1.1 booted");
