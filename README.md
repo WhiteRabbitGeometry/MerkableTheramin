@@ -1,4 +1,4 @@
-# Musical Atlas Relational Lattice — v1.2
+# Musical Atlas Relational Lattice — v1.5
 
 Official public working-model release.
 
@@ -7,9 +7,9 @@ Official public working-model release.
 - **Musical Atlas Relational Lattice** — infrastructure.
 - **ROCK / Petrified Core** — invariant inner lattice.
 - **Rick** — dynamic outer relational system.
-- **Merkabarina** — relative-motion function.
-- **Atlas Relational Ocarina** — instrument produced from persistent Merkabarina observation.
-- **Merkable Theramin** — internal-field performance/mixer layer.
+- **Mercabarina** — relative-motion function.
+- **Atlas Relational Ocarina** — instrument produced from persistent Mercabarina observation.
+- **Mercable Theramin** — internal-field performance/mixer layer.
 - **Merc** — reusable/adaptive relational musical unit.
 - **Joker** — irreducible connective participle.
 - **Bell Bridge** — recurrent bridge relation revealed by Bell sequences.
@@ -28,7 +28,7 @@ Together:
 
 This preserves connectivity without collapsing the lattice into universal equivalence.
 
-## v1.2 UI changes
+## v1.5 UI changes
 
 - `ROCK: PETRIFIED`
 - `BELL BRIDGE: NO BELL`
@@ -59,7 +59,7 @@ After merge/deploy, hard refresh once on devices that previously loaded older re
 No build step or external libraries are required.
 
 
-## v1.2 audio-routing correction
+## v1.5 audio-routing correction
 
 - Geometry is continuous and cannot be stopped.
 - Perform `Stop` is replaced by **Mute Geometry / Listen Geometry**.
@@ -67,3 +67,39 @@ No build step or external libraries are required.
 - A and B are now muted at source generation rather than only through UI state.
 - A/B mute state remains synchronized across Geometry, Ocarina, and Perform.
 - `auto-sonify geometry` is the automatic Click/Ding scanner toggle.
+
+
+## v1.5 mixer/UI correction
+
+- Merc = Mathematical Endogenic Relational Carrot.
+- Mercable is retained as the relational capability term.
+- Geometry and Perform now have local CLICK / DING / BELL / NO BELL indicators.
+- All active mode selectors receive a full-box state.
+- Perform has independent Geometry, Merc, and master audio mutes.
+- Merc playback is explicitly routed through the Merc bus.
+- Per-Merc mute state is excluded from selected playback.
+- Independent Ocarina and Perform looping remains permitted.
+
+
+## v1.5 coordinate-input refinement
+
+The v1.5 engine is unchanged. Geometry and Perform now expose editable A/B reference coordinates at the top of their modules. Dragging a reference updates the numeric fields; typing coordinates moves the reference point. This makes exact states such as A=(0.50,0.50), B=(0.50,0.51) reproducible.
+
+
+## v1.5 Reference Metronomes
+
+- Save the current A/B coordinate pair as a named reference preset.
+- Recall a preset to move the live A/B references exactly back to that address.
+- Arm one or more presets without moving the live pair.
+- Armed presets continue scanning the rotating geometry as independent reference metronomes.
+- Multiple armed reference metronomes may Click/Ding/Bell against the same shells concurrently.
+- Armed reference locations are shown as faint ghost markers.
+- Reference presets use `sessionStorage`: they survive a page reload in the same browser tab/session, but are not yet permanent user data.
+
+
+## v1.5 Portable Data
+- `.mld` — Mutable Lattice Data: reconstructible geometry, references, reference metronomes, transport, event train, Mercs, and routing state.
+- `.pms` — Persistent Merc Songbook: portable collection of Mercs.
+- WAV — lossless 44.1 kHz / 16-bit PCM render of the current Ocarina event train. WAV is a render, not the authoritative lattice source.
+- `player/index.html` — self-contained local MLD/PMS player with WAV export.
+- The same root ZIP is intended for both GitHub Pages and itch.io HTML5 hosting.
