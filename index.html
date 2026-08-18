@@ -71,25 +71,31 @@
         <div class="instrument-grid">
           <button class="pad click-pad" data-sound="click">CLICK</button>
           <button class="pad ding-pad" data-sound="ding">DING</button>
-          <button class="pad bell-pad" data-sound="bell">BELL</button>
+          <button class="pad bell-pad bell-locked" id="bellStatusPad" type="button" disabled>BELL<br><small>threshold only</small></button>
           <button class="pad no-bell-pad" data-sound="nobell">NO BELL</button>
         </div>
         <div class="sequencer">
           <div class="seq-header">
             <strong>Event Train</strong>
-            <div>
-              <button id="playSeq">Play</button>
+            <div class="transport">
+              <button id="playSeq">Play Once</button>
+              <button id="loopSeq">Loop</button>
+              <button id="stopSeq">Stop</button>
               <button id="clearSeq">Clear</button>
             </div>
           </div>
           <div id="eventTrain" aria-live="polite"></div>
+          <div id="loopStatus" class="loop-status">Stopped</div>
         </div>
-        <div class="controls">
-          <label>Tempo <input id="tempo" type="range" min="50" max="220" value="108"></label>
-          <label>Bell threshold <input id="bellThreshold" type="range" min="2" max="16" value="8"></label>
-          <label>Integration growth <input id="growth" type="range" min="1.05" max="2.5" value="1.45" step="0.05"></label>
+        <div class="controls modulation-controls">
+          <label>Base tempo <input id="tempo" type="range" min="40" max="220" value="108"><output id="tempoOut">108</output></label>
+          <label>Click rate <input id="clickRate" type="range" min="0.25" max="4" value="1" step="0.05"><output id="clickRateOut">1.00×</output></label>
+          <label>Ding rate <input id="dingRate" type="range" min="0.25" max="4" value="1" step="0.05"><output id="dingRateOut">1.00×</output></label>
+          <label>No-Bell rate <input id="noBellRate" type="range" min="0.25" max="4" value="1" step="0.05"><output id="noBellRateOut">1.00×</output></label>
+          <label>Bell threshold <input id="bellThreshold" type="range" min="2" max="32" value="8" step="0.5"><output id="bellThresholdOut">8.0</output></label>
+          <label>Integration growth <input id="growth" type="range" min="1.00" max="2.5" value="1.45" step="0.05"><output id="growthOut">1.45×</output></label>
         </div>
-        <p class="caption">In Explore mode, the Bell only fires when accumulated integration crosses threshold. In Perform mode, the pads are direct musical controls.</p>
+        <p class="caption">Program Clicks, Dings, and No-Bells. Bell is never stored in the sequence: it emerges during playback when the live integration threshold is crossed. Change the sliders while the loop is playing and the next events respond immediately.</p>
       </div>
     </section>
 

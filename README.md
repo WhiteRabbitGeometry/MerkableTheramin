@@ -1,4 +1,4 @@
-# Atlas Lattice Ocarina
+# Atlas Lattice Ocarina v0.2
 
 A static, playable display model for the Atlas Lattice.
 
@@ -65,3 +65,30 @@ The musical instrument may be playful; the mathematical status labels should rem
 - Add a real event-train sequencer and loop controls.
 - Add Bird Song as a generative/resonant layer, separate from Bell.
 - Add Atlas routing / sonar only as operational layers, never as retrospective proof of the core.
+
+
+## v0.2 — Loop / modulation engine
+
+The Ocarina now treats a composition as an ordered event train of:
+
+- Click
+- Ding
+- No Bell
+
+**Bell is not programmable.** During playback, Click and Ding contribute integration energy. When the live threshold is crossed, the Bell emerges.
+
+New controls:
+
+- Play once
+- Loop / Stop
+- Independent Click rate
+- Independent Ding rate
+- Independent No-Bell rate
+- Live Bell threshold
+- Live integration-growth factor
+
+The modulation controls remain live while a loop is running. The sequence order stays fixed, while each event type can stretch or compress its own interval.
+
+This keeps the epistemic rule intact:
+
+> You can compose the evidence. You cannot compose the conclusion.
