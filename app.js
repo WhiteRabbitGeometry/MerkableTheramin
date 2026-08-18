@@ -1,5 +1,6 @@
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-let CORE=null, mode="explore", audioCtx=null, eventTrain=[], energy=0;
+let CORE=null, mode="explore", audioCtx=null, eventTrain=[], liveEnergy=0;
+let transportToken=0, isLooping=false, loopNumber=0;
 
 async function loadCore(){
   CORE=await fetch("data/core.json").then(r=>r.json());
@@ -33,26 +34,113 @@ function bell(t=audioCtx.currentTime,root=261.63){
 }
 function noBell(t=audioCtx.currentTime){tone(92,t,.18,.08,"triangle");noiseBurst(t,.05,.06)}
 
-function addEvent(type,manual=false){
-  ensureAudio();
-  const growth=+$("#growth").value, threshold=+$("#bellThreshold").value;
-  if(type==="click"){
-    energy += Math.pow(growth,Math.max(0,eventTrain.filter(x=>x==="click"||x==="ding").length))*0.55;
-    click();
-    if(mode==="explore" && energy>=threshold){type="bell";setTimeout(()=>bell(audioCtx.currentTime,220),70);energy=0}
-  } else if(type==="ding"){
-    energy += Math.pow(growth,Math.max(0,eventTrain.length))*0.8;ding();
-    if(mode==="explore" && energy>=threshold){type="bell";setTimeout(()=>bell(audioCtx.currentTime,220),80);energy=0}
-  } else if(type==="bell"){
-    if(mode==="perform"||manual){bell();energy=0}else{log("Bell request rejected: closure threshold controls Explore mode");return}
-  } else if(type==="nobell"){noBell();energy=0}
-  eventTrain.push(type);renderTrain();log(type.toUpperCase()+` · integration energy ${energy.toFixed(2)}`);
+function threshold(){return +$("#bellThreshold").value}
+function growth(){return +$("#growth").value}
+function contribution(type,ordinal){
+  if(type==="click") return .55*Math.pow(growth(),ordinal);
+  if(type==="ding") return .80*Math.pow(growth(),ordinal);
+  return 0;
 }
-function renderTrain(){$("#eventTrain").textContent=eventTrain.map(x=>x==="bell"?"🔔 BELL":x==="ding"?"· ding":x==="click"?"· click":"· NO BELL").join("  ")}
-$$(".pad").forEach(b=>b.addEventListener("click",()=>addEvent(b.dataset.sound,true)));
-$("#clearSeq").addEventListener("click",()=>{eventTrain=[];energy=0;renderTrain()});
+function durationFor(type){
+  const beat=60/(+$("#tempo").value||108);
+  const rate=type==="click" ? +$("#clickRate").value :
+             type==="ding" ? +$("#dingRate").value :
+             type==="nobell" ? +$("#noBellRate").value : 1;
+  return beat/Math.max(.01,rate);
+}
+function ringBell(source="closure"){
+  ensureAudio(); bell(audioCtx.currentTime,220);
+  $("#bellStatusPad").classList.add("active");
+  setTimeout(()=>$("#bellStatusPad").classList.remove("active"),420);
+  log(`BELL · ${source}`);
+}
+function addEvent(type){
+  ensureAudio();
+  if(type==="bell") return;
+  if(type==="click"){click();liveEnergy+=contribution("click",eventTrain.length)}
+  else if(type==="ding"){ding();liveEnergy+=contribution("ding",eventTrain.length)}
+  else if(type==="nobell"){noBell();liveEnergy=0}
+  eventTrain.push(type);
+  if(liveEnergy>=threshold()){ringBell("live threshold");liveEnergy=0}
+  renderTrain();log(type.toUpperCase()+` · live energy ${liveEnergy.toFixed(2)}`);
+}
+function renderTrain(){
+  $("#eventTrain").textContent=eventTrain.length
+    ? eventTrain.map(x=>x==="ding"?"· ding":x==="click"?"· click":"· NO BELL").join("  ")
+    : "— empty —";
+}
+$$(".pad[data-sound]").forEach(b=>b.addEventListener("click",()=>addEvent(b.dataset.sound)));
+$("#clearSeq").addEventListener("click",()=>{stopTransport();eventTrain=[];liveEnergy=0;renderTrain()});
 $("#clearLog").addEventListener("click",()=>$("#log").innerHTML="");
-$("#playSeq").addEventListener("click",()=>{ensureAudio();const beat=60/+$("#tempo").value;eventTrain.forEach((x,i)=>{const t=audioCtx.currentTime+i*beat;if(x==="click")click(t);if(x==="ding")ding(t);if(x==="bell")bell(t,220);if(x==="nobell")noBell(t)})});
+
+function stopTransport(){
+  transportToken++;
+  isLooping=false;
+  $("#loopSeq").classList.remove("active");
+  $("#loopStatus").classList.remove("running");
+  $("#loopStatus").textContent="Stopped";
+}
+$("#stopSeq").addEventListener("click",stopTransport);
+
+function sleep(ms,token){return new Promise(resolve=>setTimeout(()=>resolve(token===transportToken),Math.max(0,ms)))}
+
+async function playCycle(token,loopIndex=0){
+  if(!eventTrain.length){log("Sequence is empty");return false}
+  let cycleEnergy=0, ordinal=0;
+  $("#loopStatus").textContent=`Playing cycle ${loopIndex+1} · energy ${cycleEnergy.toFixed(2)}`;
+  for(let i=0;i<eventTrain.length;i++){
+    if(token!==transportToken)return false;
+    const type=eventTrain[i];
+    ensureAudio();
+    if(type==="click"){click();cycleEnergy+=contribution(type,ordinal++)}
+    else if(type==="ding"){ding();cycleEnergy+=contribution(type,ordinal++)}
+    else if(type==="nobell"){noBell();cycleEnergy=0;ordinal=0}
+    log(`PLAY ${type.toUpperCase()} · cycle ${loopIndex+1} · energy ${cycleEnergy.toFixed(2)}`);
+    if(cycleEnergy>=threshold()){
+      await sleep(70,token); if(token!==transportToken)return false;
+      ringBell(`cycle ${loopIndex+1} threshold`);
+      cycleEnergy=0;ordinal=0;
+    }
+    $("#loopStatus").textContent=`Playing cycle ${loopIndex+1} · energy ${cycleEnergy.toFixed(2)} / ${threshold().toFixed(1)}`;
+    const ok=await sleep(durationFor(type)*1000,token);
+    if(!ok)return false;
+  }
+  return true;
+}
+
+$("#playSeq").addEventListener("click",async()=>{
+  stopTransport(); ensureAudio();
+  const token=++transportToken;
+  $("#loopStatus").classList.add("running");
+  await playCycle(token,0);
+  if(token===transportToken){
+    $("#loopStatus").classList.remove("running");
+    $("#loopStatus").textContent="Finished";
+  }
+});
+$("#loopSeq").addEventListener("click",async()=>{
+  if(isLooping){stopTransport();return}
+  if(!eventTrain.length){log("Sequence is empty");return}
+  ensureAudio();isLooping=true;loopNumber=0;
+  const token=++transportToken;
+  $("#loopSeq").classList.add("active");$("#loopStatus").classList.add("running");
+  while(isLooping && token===transportToken){
+    const ok=await playCycle(token,loopNumber++);
+    if(!ok)break;
+  }
+});
+
+function bindOut(id,out,fmt=v=>v){
+  const el=$(id),o=$(out);
+  const update=()=>o.textContent=fmt(el.value);
+  el.addEventListener("input",update);update();
+}
+bindOut("#tempo","#tempoOut",v=>v);
+bindOut("#clickRate","#clickRateOut",v=>(+v).toFixed(2)+"×");
+bindOut("#dingRate","#dingRateOut",v=>(+v).toFixed(2)+"×");
+bindOut("#noBellRate","#noBellRateOut",v=>(+v).toFixed(2)+"×");
+bindOut("#bellThreshold","#bellThresholdOut",v=>(+v).toFixed(1));
+bindOut("#growth","#growthOut",v=>(+v).toFixed(2)+"×");
 
 $$(".mode").forEach(b=>b.addEventListener("click",()=>{mode=b.dataset.mode;$$(".mode").forEach(x=>x.classList.toggle("active",x===b));log(`Mode: ${mode}`)}));
 $$(".tab").forEach(b=>b.addEventListener("click",()=>{const v=b.dataset.view;$$(".tab").forEach(x=>x.classList.toggle("active",x===b));$$(".panel").forEach(x=>x.classList.remove("active"));$("#"+v+"View").classList.add("active")}));
@@ -96,6 +184,9 @@ function frame(now){
  requestAnimationFrame(frame)
 }
 requestAnimationFrame(frame);
+
+// Geometry sampling still records Click/Ding into the playable sequence.
 canvas.addEventListener("click",()=>addEvent(Math.random()>.72?"ding":"click"));
 
+renderTrain();
 loadCore();
