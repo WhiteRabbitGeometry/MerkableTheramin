@@ -1,13 +1,13 @@
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const on=(selector,event,handler)=>{
   const el=$(selector);
-  if(!el){ console.warn(`[MARL v1.6] missing optional control ${selector}`); return null; }
+  if(!el){ console.warn(`[MARL v2.1.0] missing optional control ${selector}`); return null; }
   el.addEventListener(event,handler);
   return el;
 };
 const setText=(selector,text)=>{ const el=$(selector); if(el) el.textContent=text; };
 window.addEventListener("error",e=>{
-  console.error("[MARL v1.6 runtime]", e.error || e.message);
+  console.error("[MARL v2.1.0 runtime]", e.error || e.message);
   const hint=$("#audioHint");
   if(hint) hint.textContent="A module reported an error; basic view navigation remains available.";
 });
@@ -17,16 +17,22 @@ let liveEnergy=0,scanEnergy=0,lastScanEvent=0,lastScanClass="none";
 let captureActive=false,captureEvents=[],captureTrailA=[],captureTrailB=[];
 let referenceA={x:.38,y:.50},referenceB={x:.62,y:.50};
 let referencePresets=[];
-const REFERENCE_SESSION_KEY="marl.referencePresets.v1.6";
+const REFERENCE_SESSION_KEY="marl.referencePresets.v2.1";
 let activeRef="A";
 let voiceAOn=true,voiceBOn=true,geometryBusOn=true,mercBusOn=true,masterAudible=true;
+let referenceMetronomeAudible=true;
+let geometryTraces=[];
 
 
 function loadCore(){
-  CORE={version:"1.6.0",canonicalCore:"ROCK · PETRIFIED"};
+  CORE={version:"2.1.0",canonicalCore:"ROCK · PETRIFIED"};
   const rev=$("#coreRevision"); if(rev) rev.textContent=CORE.canonicalCore;
 }
 function flashEvent(type){
+ const normalized=type==="noBell"?"nobell":type;
+ document.querySelectorAll(`[data-incidence-event="${normalized}"],[data-geometry-event="${normalized}"],[data-perform-event="${normalized}"]`).forEach(el=>{
+   el.classList.add("active");setTimeout(()=>el.classList.remove("active"),240);
+ });
  const idMap={click:"eventClick",ding:"eventDing",bell:"eventBell",noBell:"eventNoBell"};
  const id=idMap[type];
  if(id){const el=$("#"+id);if(el){el.classList.add("active");setTimeout(()=>el.classList.remove("active"),240)}}
@@ -148,29 +154,14 @@ $$(".pad[data-sound]").forEach(b=>b.addEventListener("click",()=>addEvent(b.data
 $$("[data-perf-sound]").forEach(b=>b.addEventListener("click",()=>{if($("#armPads").checked)soundEvent(b.dataset.perfSound,"performance pad",false,"merc")}));
 
 
-function syncVoiceButtons(){
-  ["#ocarinaMuteA","#performMuteA"].forEach(s=>{const b=$(s);if(b){b.textContent=`A: ${voiceAOn?"ON":"MUTED"}`;b.classList.toggle("muted",!voiceAOn)}});
-  ["#ocarinaMuteB","#performMuteB"].forEach(s=>{const b=$(s);if(b){b.textContent=`B: ${voiceBOn?"ON":"MUTED"}`;b.classList.toggle("muted",!voiceBOn)}});
-  const a=$("#muteA"),b=$("#muteB");
-  if(a)a.checked=!voiceAOn;
-  if(b)b.checked=!voiceBOn;
-}
-function toggleVoice(which){
-  if(which==="A") voiceAOn=!voiceAOn; else voiceBOn=!voiceBOn;
-  syncVoiceButtons();
-}
-on("#ocarinaMuteA","click",()=>toggleVoice("A"));
-on("#ocarinaMuteB","click",()=>toggleVoice("B"));
-on("#performMuteA","click",()=>toggleVoice("A"));
-on("#performMuteB","click",()=>toggleVoice("B"));
-on("#muteA","change",e=>{voiceAOn=!e.target.checked;syncVoiceButtons()});
-on("#muteB","change",e=>{voiceBOn=!e.target.checked;syncVoiceButtons()});
+function syncVoiceButtons(){}
+function toggleVoice(which){}
 
 function renderTrain(){
  const box=$("#eventTrain");box.innerHTML="";
  if(!eventTrain.length){box.textContent="— empty —";return}
  eventTrain.forEach((type,i)=>{
-   const chip=document.createElement("span");chip.className=`event-chip ${type}`;
+   const chip=document.createElement("span");chip.className=`event-chip ${type}`;chip.dataset.trainIndex=i;
    chip.innerHTML=`<span>${type==="nobell"?"NO BELL":type}</span><button>←</button><button>→</button><button>×</button>`;
    const [l,r,x]=chip.querySelectorAll("button");
    l.onclick=()=>{if(i>0){[eventTrain[i-1],eventTrain[i]]=[eventTrain[i],eventTrain[i-1]];renderTrain()}};
@@ -214,14 +205,16 @@ $("#saveSeq").onclick=()=>{if(!eventTrain.length)return;savedTrains.push({name:`
 $("#clearSeq").onclick=()=>{stopTransport();eventTrain=[];liveEnergy=0;renderTrain()};
 $("#clearLog").onclick=()=>$("#log").innerHTML="";
 
-function stopTransport(){transportToken++;isLooping=false;$("#loopSeq").classList.remove("active");$("#loopStatus").classList.remove("running");$("#loopStatus").textContent="Stopped"}
+function clearTrainHighlight(){document.querySelectorAll("[data-train-index]").forEach(el=>el.classList.remove("active-step"))}
+function highlightTrainStep(i){document.querySelectorAll("[data-train-index]").forEach(el=>el.classList.toggle("active-step",Number(el.dataset.trainIndex)===i))}
+function stopTransport(){transportToken++;clearTrainHighlight();isLooping=false;$("#loopSeq").classList.remove("active");$("#loopStatus").classList.remove("running");$("#loopStatus").textContent="Stopped"}
 $("#stopSeq").onclick=stopTransport;
 function sleep(ms,token,kind="transport"){return new Promise(resolve=>setTimeout(()=>resolve(kind==="transport"?token===transportToken:token===performanceToken),Math.max(0,ms)))}
 async function playTrain(events,token,cycle=0,kind="transport"){
  let e=0,ord=0;if(!events.length)return false;
  for(let i=0;i<events.length;i++){
   const valid=kind==="transport"?token===transportToken:token===performanceToken;if(!valid)return false;
-  const type=events[i];await ensureAudio();
+  const type=events[i];if(kind==="transport")highlightTrainStep(i);await ensureAudio();
   if(type==="click"){click();e+=contribution(type,ord++)}
   else if(type==="ding"){const h=currentHarmony();dingPair(h.pA,h.pB,h.rel,audioCtx.currentTime,"merc");e+=contribution(type,ord++)}
   else{noBell();e=0;ord=0}
@@ -229,7 +222,7 @@ async function playTrain(events,token,cycle=0,kind="transport"){
   if(kind==="transport")$("#loopStatus").textContent=`Cycle ${cycle+1} · energy ${e.toFixed(2)} / ${threshold().toFixed(1)}`;
   if(!(await sleep(durationFor(type)*1000,token,kind)))return false;
  }
- return true;
+ if(kind==="transport")clearTrainHighlight();return true;
 }
 $("#playSeq").onclick=async()=>{stopTransport();const token=++transportToken;$("#loopStatus").classList.add("running");await playTrain(eventTrain,token,0);if(token===transportToken){$("#loopStatus").classList.remove("running");$("#loopStatus").textContent="Finished"}};
 $("#loopSeq").onclick=async()=>{if(isLooping){stopTransport();return}if(!eventTrain.length)return;isLooping=true;let cycle=0;const token=++transportToken;$("#loopSeq").classList.add("active");$("#loopStatus").classList.add("running");while(isLooping&&token===transportToken)if(!(await playTrain(eventTrain,token,cycle++)))break};
@@ -259,14 +252,23 @@ function incidenceMarkup(){
  const cx=450,cy=310,R=220,pts=[...Array(5)].map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/5;return[cx+R*Math.cos(a),cy+R*Math.sin(a)]});
  const edges=[];for(let i=0;i<5;i++)for(let j=i+1;j<5;j++)edges.push([i,j]);
  const c5=[...Array(6)].map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/6;return[cx+125*Math.cos(a),cy+125*Math.sin(a)]});
- return `${edges.map(([i,j])=>`<line x1="${pts[i][0]}" y1="${pts[i][1]}" x2="${pts[j][0]}" y2="${pts[j][1]}" stroke="#41414e" stroke-width="2"/>`).join("")}
+ return `${edges.map(([i,j])=>`<line class="inc-edge inc-edge-${i} inc-edge-${j}" x1="${pts[i][0]}" y1="${pts[i][1]}" x2="${pts[j][0]}" y2="${pts[j][1]}" stroke="#41414e" stroke-width="2"/>`).join("")}
  ${pts.map((p,i)=>`<g class="inc-a4" data-i="${i}"><circle cx="${p[0]}" cy="${p[1]}" r="38" fill="#111117" stroke="#d7b45c" stroke-width="3"/><text x="${p[0]}" y="${p[1]+6}" text-anchor="middle" fill="#f2f0ea">A₄ ${i}</text></g>`).join("")}
  ${c5.map((p,i)=>`<g class="inc-c5" data-i="${i}"><circle cx="${p[0]}" cy="${p[1]}" r="22" fill="#171720" stroke="#8ba7ff" stroke-width="2"/><text x="${p[0]}" y="${p[1]+5}" text-anchor="middle" fill="#f2f0ea" font-size="12">C₅</text></g>`).join("")}
- <circle cx="${cx}" cy="${cy}" r="76" fill="rgba(215,180,92,.05)" stroke="#c26d68" stroke-width="2" stroke-dasharray="8 7"/><text x="${cx}" y="${cy-8}" text-anchor="middle" fill="#f2f0ea">C₂ bridge</text><text x="${cx}" y="${cy+17}" text-anchor="middle" fill="#c26d68" font-size="13">NO BELL</text>`;
+ <g class="inc-c2" tabindex="0" role="button" aria-label="C2 bridge inspection Bell"><circle cx="${cx}" cy="${cy}" r="76" fill="rgba(215,180,92,.05)" stroke="#c26d68" stroke-width="2" stroke-dasharray="8 7"/><text x="${cx}" y="${cy-8}" text-anchor="middle" fill="#f2f0ea">C₂ bridge</text><text x="${cx}" y="${cy+17}" text-anchor="middle" fill="#d7b45c" font-size="13">BELL INSPECTION</text></g>`;
+}
+function pulseIncidence(svg,node){
+ const targets=[node];
+ if(node.classList.contains("inc-a4")) svg.querySelectorAll(`.inc-edge-${node.dataset.i}`).forEach(x=>targets.push(x));
+ targets.forEach(x=>x.classList.add("incidence-active"));
+ setTimeout(()=>targets.forEach(x=>x.classList.remove("incidence-active")),520);
 }
 function wireIncidence(svg,perform=false){
- svg.querySelectorAll(".inc-a4").forEach(n=>n.onclick=()=>{if(!perform||$("#armIncidence").checked)soundEvent("click",`A₄ sector ${n.dataset.i}`,!perform)});
- svg.querySelectorAll(".inc-c5").forEach(n=>n.onclick=()=>{if(!perform||$("#armIncidence").checked)soundEvent("ding",`C₅ gate ${n.dataset.i}`,!perform)});
+ svg.querySelectorAll(".inc-a4").forEach(n=>n.onclick=()=>{if(!perform||$("#armIncidence").checked){pulseIncidence(svg,n);soundEvent("click",`A₄ sector ${n.dataset.i}`,!perform)}});
+ svg.querySelectorAll(".inc-c5").forEach(n=>n.onclick=()=>{if(!perform||$("#armIncidence").checked){pulseIncidence(svg,n);soundEvent("ding",`C₅ gate ${n.dataset.i}`,!perform)}});
+ const bridge=svg.querySelector(".inc-c2");
+ const bell=async()=>{if(!perform||$("#armIncidence").checked){pulseIncidence(svg,bridge);await ringBell("C₂ incidence bridge inspection","merc")}};
+ if(bridge){bridge.onclick=bell;bridge.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();bell()}}}
 }
 $("#incidenceSvg").innerHTML=incidenceMarkup();wireIncidence($("#incidenceSvg"),false);
 function drawPerformIncidence(){$("#performIncidenceSvg").innerHTML=incidenceMarkup();wireIncidence($("#performIncidenceSvg"),true)}
@@ -301,8 +303,18 @@ function drawGeometry(canvas,ctx,performance=false){
    });
  }
 
- const nearest=(P,ref)=>{const rx=ref.x*w,ry=ref.y*h;let n=Infinity;P.forEach(p=>n=Math.min(n,Math.hypot(p[0]-rx,p[1]-ry)));return Math.max(0,1-n/115)};
- return {scoreA:nearest(P_A,referenceA),scoreB:nearest(P_B,referenceB)};
+ const nearest=(P,ref)=>{const rx=ref.x*w,ry=ref.y*h;let n=Infinity,best=null;P.forEach(p=>{const d=Math.hypot(p[0]-rx,p[1]-ry);if(d<n){n=d;best=p}});return {score:Math.max(0,1-n/115),point:best}};
+ const na=nearest(P_A,referenceA),nb=nearest(P_B,referenceB);
+ const now=performance.now();
+ geometryTraces=geometryTraces.filter(t=>now-t.time<t.life);
+ geometryTraces.forEach(t=>{
+   const alpha=(1-(now-t.time)/t.life)*.72;
+   ctx.save();ctx.globalAlpha=alpha;ctx.lineWidth=t.kind==="bell"?5:t.kind==="ding"?3:2;ctx.strokeStyle=t.kind==="bell"?"#d7b45c":t.kind==="ding"?"#f2f0ea":"#aaa";
+   ctx.beginPath();ctx.moveTo(referenceA.x*w,referenceA.y*h);ctx.lineTo(na.point[0],na.point[1]);ctx.lineTo(nb.point[0],nb.point[1]);ctx.lineTo(referenceB.x*w,referenceB.y*h);ctx.stroke();
+   [na.point,nb.point].forEach(q=>{ctx.beginPath();ctx.arc(q[0],q[1],8+(now-t.time)/80,0,Math.PI*2);ctx.stroke()});
+   ctx.restore();
+ });
+ return {scoreA:na.score,scoreB:nb.score,pointA:na.point,pointB:nb.point};
 }
 
 
@@ -402,6 +414,14 @@ bindReferenceInputGroup("refB","B");
 bindReferenceInputGroup("performRefA","A");
 bindReferenceInputGroup("performRefB","B");
 
+
+function syncReferenceMetronomeButtons(){
+ const text=referenceMetronomeAudible?"Mute Reference Metronome":"Unmute Reference Metronome";
+ ["#referenceMetronomeMuteGeometry","#referenceMetronomeMutePerform"].forEach(sel=>{const b=$(sel);if(b){b.textContent=text;b.classList.toggle("muted",!referenceMetronomeAudible)}});
+}
+on("#referenceMetronomeMuteGeometry","click",()=>{referenceMetronomeAudible=!referenceMetronomeAudible;syncReferenceMetronomeButtons()});
+on("#referenceMetronomeMutePerform","click",()=>{referenceMetronomeAudible=!referenceMetronomeAudible;syncReferenceMetronomeButtons()});
+
 function updateReadouts(){
  const pA=pentatonicFromRef(referenceA),pB=pentatonicFromRef(referenceB),rel=relationState(lastScoreA,lastScoreB);
  const iv=intervalLabel(pA,pB),rs=rel.harmonic?"harmonic":"dissonant";
@@ -417,7 +437,23 @@ function setReference(canvas,e){
  updateReadouts();
  syncReferenceInputs();
 }
-[$("#geoCanvas"),$("#performGeoCanvas")].forEach(c=>{let drag=false;c.onpointerdown=e=>{drag=true;c.setPointerCapture(e.pointerId);setReference(c,e)};c.onpointermove=e=>{if(drag)setReference(c,e)};c.onpointerup=()=>drag=false});
+[$("#geoCanvas"),$("#performGeoCanvas")].forEach(c=>{
+ let drag=false,lastPt=null,mode="reference";
+ c.onpointerdown=e=>{
+   drag=true;lastPt={x:e.clientX,y:e.clientY};c.setPointerCapture(e.pointerId);
+   mode=$("#autoScan").checked?"reference":"rotate";
+   if(mode==="reference")setReference(c,e);
+ };
+ c.onpointermove=e=>{
+   if(!drag)return;
+   if(mode==="reference")setReference(c,e);
+   else{
+     const dx=e.clientX-lastPt.x,dy=e.clientY-lastPt.y;lastPt={x:e.clientX,y:e.clientY};
+     aA+=dx*.006;aB-=dx*.004+dy*.004;phase+=dy*.006;
+   }
+ };
+ c.onpointerup=c.onpointercancel=()=>{drag=false;lastPt=null};
+});
 $("#resetReferences").onclick=()=>{referenceA={x:.38,y:.5};referenceB={x:.62,y:.5};updateReadouts();syncReferenceInputs()};
 
 
@@ -434,6 +470,7 @@ function scoreReferencePair(canvas,refA,refB){
 }
 
 async function maybeScanEvent(now,performanceVisible){
+ const sonify=$("#sonifyScan").checked;
  if(!audioUnlocked)return;
  const rate=+$("#scanRate").value;
  if(now-lastScanEvent<rate)return;
@@ -445,10 +482,10 @@ async function maybeScanEvent(now,performanceVisible){
    const inGeometry=$("#geometryView").classList.contains("active");
    const inPerform=$("#performView").classList.contains("active")&&$("#armGeometry").checked;
    if(!(inGeometry||inPerform)||!geometryBusOn)return;
-   if(cls==="click"){click();scanEnergy+=.55}
-   else{const h=currentHarmony();dingPair(h.pA,h.pB,h.rel,audioCtx.currentTime,"geometry");scanEnergy+=.85}
+   if(cls==="click"){if(sonify&&referenceMetronomeAudible)click();scanEnergy+=.55;geometryTraces.push({kind:"click",time:performance.now(),life:1400})}
+   else{const h=currentHarmony();if(sonify&&referenceMetronomeAudible)dingPair(h.pA,h.pB,h.rel,audioCtx.currentTime,"geometry");scanEnergy+=.85;geometryTraces.push({kind:"ding",time:performance.now(),life:2200})}
    if(inPerform&&captureActive){captureEvents.push(cls);renderCapturePath()}
-   if(scanEnergy>=threshold()){await ringBell("geometry closure","geometry");scanEnergy=0;if(inPerform&&captureActive){captureEvents.push("bell");renderCapturePath()}}
+   if(scanEnergy>=threshold()){if(sonify&&referenceMetronomeAudible)await ringBell("geometry closure","geometry");geometryTraces.push({kind:"bell",time:performance.now(),life:3200});scanEnergy=0;if(inPerform&&captureActive){captureEvents.push("bell");renderCapturePath()}}
  }
 }
 function renderCapturePath(){
@@ -458,6 +495,7 @@ function renderCapturePath(){
 
 
 async function maybeScanSavedReferences(now){
+  if(!$("#sonifyScan").checked)return;
   if(!audioUnlocked||!geometryBusOn)return;
   const rate=+$("#scanRate").value;
   const inGeometry=$("#geometryView").classList.contains("active");
@@ -550,7 +588,7 @@ async function playStack(loop=false){
 $("#playSelected").onclick=()=>playStack(false);
 $("#loopSelected").onclick=()=>{if(performanceLooping)stopPerformance();else playStack(true)};
 
-loadReferencePresets();renderTrain();renderSaved();drawPerformIncidence();updateReadouts();syncReferenceInputs();renderReferencePresets();syncVoiceButtons();syncBusButtons();loadCore();
+loadReferencePresets();renderTrain();renderSaved();drawPerformIncidence();updateReadouts();syncReferenceInputs();renderReferencePresets();syncReferenceMetronomeButtons();syncBusButtons();loadCore();
 
 
 console.info("[MARL] Musical Atlas Relational Lattice v1.6 booted");
@@ -589,7 +627,7 @@ function transportSnapshot(){
     noBellRate:+$("#noBellRate").value,bellThreshold:+$("#bellThreshold").value,growth:+$("#growth").value};
 }
 function makeMLD(){
-  return {format:MLD_FORMAT,version:MLD_VERSION,createdAt:new Date().toISOString(),appVersion:"1.6.0",
+  return {format:MLD_FORMAT,version:MLD_VERSION,createdAt:new Date().toISOString(),appVersion:"2.1.0",
     title:"Untitled Lattice",geometry:geometrySnapshot(),transport:transportSnapshot(),
     references:{A:cloneData(referenceA),B:cloneData(referenceB),
       presets:referencePresets.map(p=>({id:p.id,name:p.name,A:cloneData(p.A),B:cloneData(p.B),armed:!!p.armed}))},
@@ -625,7 +663,7 @@ function applyMLD(d){
   log(`MLD · loaded ${d.title||"untitled"}`);
 }
 function makePMS(){
-  return {format:PMS_FORMAT,version:PMS_VERSION,createdAt:new Date().toISOString(),appVersion:"1.6.0",
+  return {format:PMS_FORMAT,version:PMS_VERSION,createdAt:new Date().toISOString(),appVersion:"2.1.0",
     title:"Persistent Merc Songbook",mercs:savedTrains.map(t=>({name:t.name,pathName:t.pathName||null,events:[...(t.events||[])],source:t.source||"ocarina",
       trailA:t.trailA?cloneData(t.trailA):null,trailB:t.trailB?cloneData(t.trailB):null}))};
 }

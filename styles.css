@@ -130,3 +130,43 @@ button[data-view].active {
 .merc-name,.path-name{cursor:text;text-decoration:underline dotted;text-underline-offset:3px}
 .merc-name:hover,.path-name:hover{color:var(--accent)}
 .merc-save-header{align-items:center}
+
+
+/* v2.1.0 synthesis */
+.local-events{display:flex;gap:.45rem;flex-wrap:wrap;align-items:center;margin:.4rem 0 .65rem}
+.local-events span{border:1px solid var(--line);border-radius:999px;padding:.22rem .52rem;opacity:.38;transition:.12s ease}
+.local-events span.active{opacity:1;font-weight:700;box-shadow:0 0 14px rgba(215,180,92,.42)}
+.local-events [data-incidence-event="nobell"].active,
+.local-events [data-geometry-event="nobell"].active,
+.local-events [data-perform-event="nobell"].active{border-color:#c26d68}
+.local-events [data-incidence-event="bell"].active,
+.local-events [data-geometry-event="bell"].active,
+.local-events [data-perform-event="bell"].active{border-color:#d7b45c}
+
+.perform-persistence{
+  grid-column:1/-1;
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:.65rem;
+}
+.persist-card{
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:.65rem;
+  background:rgba(255,255,255,.025);
+  display:flex;
+  flex-direction:column;
+  gap:.45rem;
+}
+.incidence-active{filter:drop-shadow(0 0 8px #d7b45c)}
+.incidence-active line{stroke:#d7b45c!important;stroke-width:5!important}
+.incidence-active circle{stroke:#d7b45c!important;stroke-width:5!important}
+.event-chip.active-step{
+  outline:2px solid #d7b45c;
+  box-shadow:0 0 14px rgba(215,180,92,.52);
+  transform:translateY(-1px) scale(1.04);
+}
+.geometry-drag-hint{margin:.35rem 0}
+#geoCanvas,#performGeoCanvas{touch-action:none}
+@media(max-width:900px){.perform-persistence{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.perform-persistence{grid-template-columns:1fr}}
