@@ -1,13 +1,13 @@
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const on=(selector,event,handler)=>{
   const el=$(selector);
-  if(!el){ console.warn(`[MARL v2.1.6] missing optional control ${selector}`); return null; }
+  if(!el){ console.warn(`[MARL v2.1.5] missing optional control ${selector}`); return null; }
   el.addEventListener(event,handler);
   return el;
 };
 const setText=(selector,text)=>{ const el=$(selector); if(el) el.textContent=text; };
 window.addEventListener("error",e=>{
-  console.error("[MARL v2.1.6 runtime]", e.error || e.message);
+  console.error("[MARL v2.1.5 runtime]", e.error || e.message);
   const hint=$("#audioHint");
   if(hint) hint.textContent="A module reported an error; basic view navigation remains available.";
 });
@@ -16,17 +16,15 @@ let eventTrain=[],savedTrains=[],transportToken=0,isLooping=false,performanceTok
 let liveEnergy=0,scanEnergy=0,lastScanEvent=0,lastScanClass="none";
 let captureActive=false,captureEvents=[],captureTrailA=[],captureTrailB=[];
 let referenceA={x:.38,y:.50},referenceB={x:.62,y:.50};
-let referencePresets=FACTORY_REFERENCE_PRESETS.map(x=>structuredClone(x));
-const FACTORY_REFERENCE_PRESETS=[{"id":"factory-wild","name":"Wild","a":{"x":0.43,"y":0.35},"b":{"x":0.59,"y":0.3},"armed":false,"factory":true},{"id":"factory-bells","name":"Bells","a":{"x":0.36,"y":0.36},"b":{"x":0.52,"y":0.22},"armed":false,"factory":true},{"id":"factory-ding","name":"Ding","a":{"x":0.36,"y":0.35},"b":{"x":0.53,"y":0.26},"armed":false,"factory":true}];
+let referencePresets=[];
 const REFERENCE_SESSION_KEY="marl.referencePresets.v2.1";
 let activeRef="A";
 let voiceAOn=true,voiceBOn=true,geometryBusOn=true,mercBusOn=true,masterAudible=true;
-let referenceMetronomeAudible=true;
 let geometryTraces=[];
 
 
 function loadCore(){
-  CORE={version:"2.1.6",canonicalCore:"ROCK · PETRIFIED"};
+  CORE={version:"2.1.5",canonicalCore:"ROCK · PETRIFIED"};
   const rev=$("#coreRevision"); if(rev) rev.textContent=CORE.canonicalCore;
 }
 function flashEvent(type){
@@ -369,7 +367,6 @@ const phi=(1+Math.sqrt(5))/2,inv=1/phi,V=[];[-1,1].forEach(a=>[-1,1].forEach(b=>
 let minD=Infinity;for(let i=0;i<V.length;i++)for(let j=i+1;j<V.length;j++){const d=Math.hypot(...V[i].map((x,k)=>x-V[j][k]));if(d>1e-6)minD=Math.min(minD,d)}
 const E=[];for(let i=0;i<V.length;i++)for(let j=i+1;j<V.length;j++){const d=Math.hypot(...V[i].map((x,k)=>x-V[j][k]));if(Math.abs(d-minD)<1e-5)E.push([i,j])}
 let aA=0,aB=0,last=0,phase=0,lastScoreA=0,lastScoreB=0;
-let axisTilt=0;
 function proj(v,a,mirror,w,h,scale,rip){let[x,y,z]=v;if(mirror)x=-x;const ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(.53),sb=Math.sin(.53);let X=x*ca-z*sa,Z=x*sa+z*ca,Y=y*cb-Z*sb;Z=y*sb+Z*cb;const rr=1+rip*Math.sin(phase+Math.atan2(y,x)*5);X*=rr;Y*=rr;Z*=rr;const f=1/(4.6-Z*.34);return[w/2+X*scale*f,h/2-Y*scale*f,Z]}
 function drawGeometry(canvas,ctx,performanceMode=false){
  const rip=+$("#ripple").value,w=canvas.width,h=canvas.height;ctx.clearRect(0,0,w,h);
@@ -395,12 +392,6 @@ function drawGeometry(canvas,ctx,performanceMode=false){
    });
  }
 
- 
- /* axis tilt projection */
- const tiltPx=axisTilt*Math.min(w,h)*.16;
- P_A.forEach((p,i)=>{const phaseBias=((i%5)-2)/2;p[1]+=tiltPx*phaseBias});
- P_B.forEach((p,i)=>{const phaseBias=((i%5)-2)/2;p[1]-=tiltPx*phaseBias});
-
  const nearest=(P,ref)=>{const rx=ref.x*w,ry=ref.y*h;let n=Infinity,best=null;P.forEach(p=>{const d=Math.hypot(p[0]-rx,p[1]-ry);if(d<n){n=d;best=p}});return {score:Math.max(0,1-n/115),point:best}};
  const na=nearest(P_A,referenceA),nb=nearest(P_B,referenceB);
  const now=globalThis.performance.now();
@@ -422,13 +413,6 @@ function loadReferencePresets(){
     referencePresets=raw?JSON.parse(raw):[];
     if(!Array.isArray(referencePresets))referencePresets=[];
   }catch(e){referencePresets=[]}
-
-  if(!referencePresets?.length){
-    referencePresets=FACTORY_REFERENCE_PRESETS.map(x=>structuredClone(x));
-  }else{
-    const names=new Set(referencePresets.map(x=>x.name));
-    for(const f of FACTORY_REFERENCE_PRESETS)if(!names.has(f.name))referencePresets.unshift(structuredClone(f));
-  }
 }
 function saveReferencePresets(){
   try{sessionStorage.setItem(REFERENCE_SESSION_KEY,JSON.stringify(referencePresets))}catch(e){}
@@ -459,53 +443,6 @@ function deleteReferencePreset(id){
   referencePresets=referencePresets.filter(x=>x.id!==id);
   saveReferencePresets();renderReferencePresets();
 }
-
-function metPayload(p){
-  return {
-    format:"Merkable Reference Metronome",
-    version:1,
-    name:p.name||"Reference",
-    a:{x:+p.a.x,y:+p.a.y},
-    b:{x:+p.b.x,y:+p.b.y}
-  };
-}
-function saveMET(p){
-  const payload=metPayload(p);
-  const safe=(payload.name||"reference").replace(/[^a-z0-9._-]+/gi,"-").replace(/^-+|-+$/g,"")||"reference";
-  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download=safe+".met";
-  document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-}
-function renameReferencePreset(index){
-  const p=referencePresets[index];if(!p)return;
-  const next=prompt("Rename reference metronome:",p.name||"Reference");
-  if(next===null)return;
-  const name=next.trim();if(!name)return;
-  p.name=name;
-  persistReferencePresets?.();
-  renderReferencePresets?.();
-}
-on("#openMET","change",async e=>{
-  const file=e.target.files?.[0];if(!file)return;
-  try{
-    const data=JSON.parse(await file.text());
-    if(data.format!=="Merkable Reference Metronome"||!data.a||!data.b)throw new Error("Not a Merkable .met file");
-    referencePresets.push({
-      id:`met-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
-      name:data.name||file.name.replace(/\.met$/i,""),
-      a:{x:+data.a.x,y:+data.a.y},
-      b:{x:+data.b.x,y:+data.b.y},
-      armed:false
-    });
-    persistReferencePresets?.();
-    renderReferencePresets?.();
-  }catch(err){alert("Could not open .met: "+err.message)}
-  e.target.value="";
-});
-
 function renderReferencePresets(){
   const render=(box)=>{
     if(!box)return;box.innerHTML="";
@@ -569,27 +506,10 @@ bindReferenceInputGroup("performRefB","B");
 
 
 
-
-function syncReferenceMetronomeButtons(){
-  const text=referenceMetronomeAudible?"Mute Reference Metronomes":"Unmute Reference Metronomes";
-  const b=$("#referenceMetronomeMuteGeometry");
-  if(b){b.textContent=text;b.classList.toggle("muted",!referenceMetronomeAudible)}
-}
-on("#referenceMetronomeMuteGeometry","click",()=>{
-  referenceMetronomeAudible=!referenceMetronomeAudible;
-  syncReferenceMetronomeButtons();
-});
-
-
-on("#axisTilt","input",e=>{
-  axisTilt=(+e.target.value||0)/100;
-  const o=$("#axisTiltValue");if(o)o.textContent=e.target.value;
-});
-
 function updateReadouts(){
  const pA=pentatonicFromRef(referenceA),pB=pentatonicFromRef(referenceB),rel=relationState(lastScoreA,lastScoreB);
  const iv=intervalLabel(pA,pB),rs=rel.harmonic?"harmonic":"dissonant";
- $("#refAReadout").textContent=`${Math.round(referenceA.x*100)}, ${Math.round(referenceA.y*100)}`;$("#refBReadout").textContent=`${Math.round(referenceB.x*100)}, ${Math.round(referenceB.y*100)}`;
+ $("#refAReadout").textContent=`${referenceA.x.toFixed(2)}, ${referenceA.y.toFixed(2)}`;$("#refBReadout").textContent=`${referenceB.x.toFixed(2)}, ${referenceB.y.toFixed(2)}`;
  $("#intervalReadout").textContent=iv;$("#relationReadout").textContent=rs;$("#performInterval").textContent=iv;$("#performRelation").textContent=rs;
 }
 function setReference(canvas,e){
@@ -747,16 +667,7 @@ function renderCapturePath(){
 }
 
 
-
-function alignmentOctave(score){
-  // score 0..1; near/direct alignment rises by up to +12 semitones,
-  // weak/oblique alignment falls by up to -12.
-  const s=Math.max(0,Math.min(1,score||0));
-  return Math.round((s*24)-12);
-}
-
 async function maybeScanSavedReferences(now){
-  if(!referenceMetronomeAudible)return;
   if(!audioUnlocked||!geometryBusOn)return;
   const rate=+$("#scanRate").value;
   const inGeometry=$("#geometryView").classList.contains("active");
@@ -771,11 +682,11 @@ async function maybeScanSavedReferences(now){
     if(cls==="none"){p.lastClass="none";continue}
     if(cls!==p.lastClass||now-p.lastEvent>rate*2){
       p.lastEvent=now;p.lastClass=cls;
-      if(cls==="click"){const h=currentHarmony();dingPair(h.pA,h.pB,h.rel,audioCtx.currentTime,"geometry",refOctave);p.energy+=.55}
+      if(cls==="click"){const h=currentHarmony();dingPair(h.pA,h.pB,h.rel,audioCtx.currentTime,"geometry");p.energy+=.55}
       else{
         const oldA=referenceA,oldB=referenceB;
         referenceA=p.A;referenceB=p.B;
-        const h=currentHarmony();dingPair(h.pA,h.pB,h.rel,audioCtx.currentTime,"geometry",refOctave);
+        const h=currentHarmony();dingPair(h.pA,h.pB,h.rel,audioCtx.currentTime,"geometry");
         referenceA=oldA;referenceB=oldB;
         p.energy+=.85;
       }
@@ -905,7 +816,7 @@ function transportSnapshot(){
     noBellRate:+$("#noBellRate").value,bellThreshold:+$("#bellThreshold").value,growth:+$("#growth").value};
 }
 function makeMLD(){
-  return {format:MLD_FORMAT,version:MLD_VERSION,createdAt:new Date().toISOString(),appVersion:"2.1.6",
+  return {format:MLD_FORMAT,version:MLD_VERSION,createdAt:new Date().toISOString(),appVersion:"2.1.5",
     title:"Untitled Lattice",geometry:geometrySnapshot(),transport:transportSnapshot(),
     references:{A:cloneData(referenceA),B:cloneData(referenceB),
       presets:referencePresets.map(p=>({id:p.id,name:p.name,A:cloneData(p.A),B:cloneData(p.B),armed:!!p.armed}))},
@@ -941,7 +852,7 @@ function applyMLD(d){
   log(`MLD · loaded ${d.title||"untitled"}`);
 }
 function makePMS(){
-  return {format:PMS_FORMAT,version:PMS_VERSION,createdAt:new Date().toISOString(),appVersion:"2.1.6",
+  return {format:PMS_FORMAT,version:PMS_VERSION,createdAt:new Date().toISOString(),appVersion:"2.1.5",
     title:"Persistent Merc Songbook",mercs:savedTrains.map(t=>({name:t.name,pathName:t.pathName||null,events:[...(t.events||[])],source:t.source||"ocarina",
       trailA:t.trailA?cloneData(t.trailA):null,trailB:t.trailB?cloneData(t.trailB):null}))};
 }
@@ -989,10 +900,3 @@ function wavRender(events){
   return new Blob([b],{type:"audio/wav"});
 }
 on("#exportWav","click",()=>{if(!eventTrain.length){alert("The current Ocarina event train is empty.");return}dl(wavRender(eventTrain),"merkabarina_render.wav")});
-
-document.addEventListener("click",e=>{
-  const rb=e.target.closest?.("[data-ref-rename]");
-  if(rb){renameReferencePreset(+rb.dataset.refRename);return}
-  const sb=e.target.closest?.("[data-ref-save]");
-  if(sb){const p=referencePresets[+sb.dataset.refSave];if(p)saveMET(p)}
-});

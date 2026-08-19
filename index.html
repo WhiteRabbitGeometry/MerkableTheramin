@@ -7,7 +7,7 @@
   <title>Musical Atlas Relational Lattice · Atlas Relational Ocarina · Merkable Theramin</title>
   <meta name="description" content="Playable Atlas Lattice relational-geometry instrument.">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=2.1.6">
+  <link rel="stylesheet" href="styles.css?v=2.1.5">
 </head>
 <body>
 <header class="topbar">
@@ -17,7 +17,7 @@
   </div>
   <div class="statusline">
     <span class="status established">ROCK: PETRIFIED</span>
-    <span class="status">MODEL: v2.1.6</span>
+    <span class="status">MODEL: v2.1.5</span>
     <span class="status no-bell">BELL BRIDGE: NO BELL</span>
   </div>
 </header>
@@ -59,10 +59,10 @@
   <section id="geometryView" class="panel">
     <div class="controls">
       <div class="reference-inputs">
-        <label>A ref X <input id="refAX" type="number" min="0" max=" 100" step=" 1" value="0.38"></label>
-        <label>A ref Y <input id="refAY" type="number" min="0" max=" 100" step=" 1" value="0.50"></label>
-        <label>B ref X <input id="refBX" type="number" min="0" max=" 100" step=" 1" value="0.62"></label>
-        <label>B ref Y <input id="refBY" type="number" min="0" max=" 100" step=" 1" value="0.50"></label>
+        <label>A ref X <input id="refAX" type="number" min="0" max="1" step="0.01" value="0.38"></label>
+        <label>A ref Y <input id="refAY" type="number" min="0" max="1" step="0.01" value="0.50"></label>
+        <label>B ref X <input id="refBX" type="number" min="0" max="1" step="0.01" value="0.62"></label>
+        <label>B ref Y <input id="refBY" type="number" min="0" max="1" step="0.01" value="0.50"></label>
       </div>
       <div class="reference-bank">
         <div class="reference-bank-head">
@@ -79,10 +79,6 @@
       <label>Ripple <input id="ripple" type="range" min="-0.20" max="0.20" value="0.00" step="0.005"><output id="rippleOut">0.000</output></label>
       <label>Scan rate <input id="scanRate" type="range" min="80" max="1200" value="320" step="20"><output id="scanRateOut">320 ms</output></label>
       <label><input id="autoScan" type="checkbox" checked> Rotate / Pause</label>
-      <label>Axis Tilt
-      <input id="axisTilt" type="range" min="-100" max="100" step="1" value="0">
-      <output id="axisTiltValue">0</output>
-    </label>
       <label title="Automatically sound Click/Ding events when the rotating geometry crosses registration bands"><input id="sonifyScan" type="checkbox" checked> auto-sonify geometry</label>
         <div class="local-events geometry-events" aria-label="Current geometry event">
           <span data-geometry-event="click">CLICK</span>
@@ -177,7 +173,7 @@
       <label>B Y <input id="performRefBY" type="number" min="0" max="1" step="0.01" value="0.50"></label>
     </div>
     <div class="reference-bank perform-reference-bank">
-      <div class="reference-bank-head"><strong>Reference Metronomes</strong><span class="caption">Recall or arm saved pairs</span><button id="referenceMetronomeMuteGeometry">Mute Reference Metronomes</button><label class="file-button">Open .met<input id="openMET" type="file" accept=".met,application/json"></label></div>
+      <div class="reference-bank-head"><strong>Reference Metronomes</strong><span class="caption">Recall or arm saved pairs</span></div>
       <div id="performReferencePresets" class="reference-presets"></div>
     </div>
     <div class="perform-mixer">
@@ -254,7 +250,7 @@
 </main>
 
 <footer>
-  <span>Musical Atlas Relational Lattice · v2.1.6</span>
+  <span>Musical Atlas Relational Lattice · v2.1.5</span>
   <span id="coreRevision"></span><span class="format-status">MLD v1 · PMS v1 · WAV PCM</span>
 </footer>
 
@@ -284,6 +280,6 @@
 })();
 </script>
 
-<script src="app.js?v=2.1.6"></script>
+<script src="app.js?v=2.1.5"></script>
 </body>
 </html>
