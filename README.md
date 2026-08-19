@@ -187,3 +187,13 @@ The v2.1.0 engine is unchanged. Geometry and Perform now expose editable A/B ref
 - Everywhere else on Geometry: left click/drag controls yellow/A shell; right click/drag controls blue/B shell.
 - Clicking or dragging Geometry never manually plays an event sound.
 - Geometry audio remains generated only by automatic registration/scan events.
+
+
+## v2.1.5 — canonical event semantics
+- Removed the redundant Reference Metronome mute control.
+- Geometry anchor/shell interaction is unchanged from v2.1.4.
+- CLICK and DING semantics are corrected globally:
+  - CLICK = rarer / outer / vertex-style registration.
+  - DING = more frequent / inner / resonant registration.
+- 2D Incidence node mapping updated to match the corrected event semantics.
+- Ocarina, Perform, saved-reference scanning, and event-train playback inherit the same canonical mapping.
