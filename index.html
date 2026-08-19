@@ -7,7 +7,7 @@
   <title>Musical Atlas Relational Lattice · Atlas Relational Ocarina · Merkable Theramin</title>
   <meta name="description" content="Playable Atlas Lattice relational-geometry instrument.">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=2.1.4">
+  <link rel="stylesheet" href="styles.css?v=2.1.5">
 </head>
 <body>
 <header class="topbar">
@@ -17,7 +17,7 @@
   </div>
   <div class="statusline">
     <span class="status established">ROCK: PETRIFIED</span>
-    <span class="status">MODEL: v2.1.4</span>
+    <span class="status">MODEL: v2.1.5</span>
     <span class="status no-bell">BELL BRIDGE: NO BELL</span>
   </div>
 </header>
@@ -80,7 +80,6 @@
       <label>Scan rate <input id="scanRate" type="range" min="80" max="1200" value="320" step="20"><output id="scanRateOut">320 ms</output></label>
       <label><input id="autoScan" type="checkbox" checked> Rotate / Pause</label>
       <label title="Automatically sound Click/Ding events when the rotating geometry crosses registration bands"><input id="sonifyScan" type="checkbox" checked> auto-sonify geometry</label>
-      <button id="referenceMetronomeMuteGeometry">Mute Reference Metronome</button>
         <div class="local-events geometry-events" aria-label="Current geometry event">
           <span data-geometry-event="click">CLICK</span>
           <span data-geometry-event="ding">DING</span>
@@ -174,7 +173,7 @@
       <label>B Y <input id="performRefBY" type="number" min="0" max="1" step="0.01" value="0.50"></label>
     </div>
     <div class="reference-bank perform-reference-bank">
-      <div class="reference-bank-head"><strong>Reference Metronomes</strong><span class="caption">Recall or arm saved pairs</span><button id="referenceMetronomeMutePerform">Mute Reference Metronome</button></div>
+      <div class="reference-bank-head"><strong>Reference Metronomes</strong><span class="caption">Recall or arm saved pairs</span></div>
       <div id="performReferencePresets" class="reference-presets"></div>
     </div>
     <div class="perform-mixer">
@@ -251,7 +250,7 @@
 </main>
 
 <footer>
-  <span>Musical Atlas Relational Lattice · v2.1.4</span>
+  <span>Musical Atlas Relational Lattice · v2.1.5</span>
   <span id="coreRevision"></span><span class="format-status">MLD v1 · PMS v1 · WAV PCM</span>
 </footer>
 
@@ -281,6 +280,6 @@
 })();
 </script>
 
-<script src="app.js?v=2.1.4"></script>
+<script src="app.js?v=2.1.5"></script>
 </body>
 </html>

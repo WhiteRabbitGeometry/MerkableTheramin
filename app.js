@@ -1,13 +1,13 @@
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const on=(selector,event,handler)=>{
   const el=$(selector);
-  if(!el){ console.warn(`[MARL v2.1.4] missing optional control ${selector}`); return null; }
+  if(!el){ console.warn(`[MARL v2.1.5] missing optional control ${selector}`); return null; }
   el.addEventListener(event,handler);
   return el;
 };
 const setText=(selector,text)=>{ const el=$(selector); if(el) el.textContent=text; };
 window.addEventListener("error",e=>{
-  console.error("[MARL v2.1.4 runtime]", e.error || e.message);
+  console.error("[MARL v2.1.5 runtime]", e.error || e.message);
   const hint=$("#audioHint");
   if(hint) hint.textContent="A module reported an error; basic view navigation remains available.";
 });
@@ -20,12 +20,11 @@ let referencePresets=[];
 const REFERENCE_SESSION_KEY="marl.referencePresets.v2.1";
 let activeRef="A";
 let voiceAOn=true,voiceBOn=true,geometryBusOn=true,mercBusOn=true,masterAudible=true;
-let referenceMetronomeAudible=true;
 let geometryTraces=[];
 
 
 function loadCore(){
-  CORE={version:"2.1.4",canonicalCore:"ROCK · PETRIFIED"};
+  CORE={version:"2.1.5",canonicalCore:"ROCK · PETRIFIED"};
   const rev=$("#coreRevision"); if(rev) rev.textContent=CORE.canonicalCore;
 }
 function flashEvent(type){
@@ -174,8 +173,8 @@ async function ringBell(source="closure",bus="merc",octave=0){
 }
 async function soundEvent(type,source="manual",record=true,bus="merc",octave=0){
  await ensureAudio();
- if(type==="click")click(audioCtx.currentTime,octave);
- else if(type==="ding"){const {pA,pB,rel}=currentHarmony();dingPair(pA,pB,rel,audioCtx.currentTime,bus,octave)}
+ if(type==="click"){const {pA,pB,rel}=currentHarmony();dingPair(pA,pB,rel,audioCtx.currentTime,bus,octave)}
+ else if(type==="ding")click(audioCtx.currentTime,octave);
  else if(type==="nobell")noBell(audioCtx.currentTime,octave);
  if(record){eventTrain.push(eventToken(type,octave));renderTrain()}
  log(`${eventLabel(eventToken(type,octave))} · ${source}`);
@@ -330,8 +329,8 @@ function wireIncidence(svg,perform=false){
    });
  };
 
- svg.querySelectorAll(".inc-a4").forEach(n=>bindPair(n,"click",`A₄ sector ${n.dataset.i}`));
- svg.querySelectorAll(".inc-c5").forEach(n=>bindPair(n,"ding",`C₅ gate ${n.dataset.i}`));
+ svg.querySelectorAll(".inc-a4").forEach(n=>bindPair(n,"ding",`A₄ sector ${n.dataset.i}`));
+ svg.querySelectorAll(".inc-c5").forEach(n=>bindPair(n,"click",`C₅ gate ${n.dataset.i}`));
 
  const bridge=svg.querySelector(".inc-c2");
  if(bridge){
@@ -505,12 +504,7 @@ bindReferenceInputGroup("performRefA","A");
 bindReferenceInputGroup("performRefB","B");
 
 
-function syncReferenceMetronomeButtons(){
- const text=referenceMetronomeAudible?"Mute Reference Metronome":"Unmute Reference Metronome";
- ["#referenceMetronomeMuteGeometry","#referenceMetronomeMutePerform"].forEach(sel=>{const b=$(sel);if(b){b.textContent=text;b.classList.toggle("muted",!referenceMetronomeAudible)}});
-}
-on("#referenceMetronomeMuteGeometry","click",()=>{referenceMetronomeAudible=!referenceMetronomeAudible;syncReferenceMetronomeButtons()});
-on("#referenceMetronomeMutePerform","click",()=>{referenceMetronomeAudible=!referenceMetronomeAudible;syncReferenceMetronomeButtons()});
+
 
 function updateReadouts(){
  const pA=pentatonicFromRef(referenceA),pB=pentatonicFromRef(referenceB),rel=relationState(lastScoreA,lastScoreB);
@@ -661,8 +655,8 @@ async function maybeScanEvent(now,performanceVisible){
    const inGeometry=$("#geometryView").classList.contains("active");
    const inPerform=$("#performView").classList.contains("active")&&$("#armGeometry").checked;
    if(!(inGeometry||inPerform)||!geometryBusOn)return;
-   if(cls==="click"){if(sonify)click();scanEnergy+=.55;geometryTraces.push({kind:"click",time:globalThis.performance.now(),life:1400})}
-   else{const h=currentHarmony();if(sonify)dingPair(h.pA,h.pB,h.rel,audioCtx.currentTime,"geometry");scanEnergy+=.85;geometryTraces.push({kind:"ding",time:globalThis.performance.now(),life:2200})}
+   if(cls==="click"){if(sonify){const h=currentHarmony();dingPair(h.pA,h.pB,h.rel,audioCtx.currentTime,"geometry")};scanEnergy+=.55;geometryTraces.push({kind:"click",time:globalThis.performance.now(),life:1400})}
+   else{if(sonify)click();scanEnergy+=.85;geometryTraces.push({kind:"ding",time:globalThis.performance.now(),life:2200})}
    if(inPerform&&captureActive){captureEvents.push(cls);renderCapturePath()}
    if(scanEnergy>=threshold()){if(sonify)await ringBell("geometry closure","geometry");geometryTraces.push({kind:"bell",time:globalThis.performance.now(),life:3200});scanEnergy=0;if(inPerform&&captureActive){captureEvents.push("bell");renderCapturePath()}}
  }
@@ -674,7 +668,6 @@ function renderCapturePath(){
 
 
 async function maybeScanSavedReferences(now){
-  if(!referenceMetronomeAudible)return;
   if(!audioUnlocked||!geometryBusOn)return;
   const rate=+$("#scanRate").value;
   const inGeometry=$("#geometryView").classList.contains("active");
@@ -689,7 +682,7 @@ async function maybeScanSavedReferences(now){
     if(cls==="none"){p.lastClass="none";continue}
     if(cls!==p.lastClass||now-p.lastEvent>rate*2){
       p.lastEvent=now;p.lastClass=cls;
-      if(cls==="click"){click();p.energy+=.55}
+      if(cls==="click"){const h=currentHarmony();dingPair(h.pA,h.pB,h.rel,audioCtx.currentTime,"geometry");p.energy+=.55}
       else{
         const oldA=referenceA,oldB=referenceB;
         referenceA=p.A;referenceB=p.B;
@@ -784,7 +777,7 @@ async function playStack(loop=false){
 $("#playSelected").onclick=()=>playStack(false);
 $("#loopSelected").onclick=()=>{if(performanceLooping)stopPerformance();else playStack(true)};
 
-loadReferencePresets();renderTrain();renderSaved();drawPerformIncidence();updateReadouts();syncReferenceInputs();renderReferencePresets();syncReferenceMetronomeButtons();syncBusButtons();loadCore();
+loadReferencePresets();renderTrain();renderSaved();drawPerformIncidence();updateReadouts();syncReferenceInputs();renderReferencePresets();syncBusButtons();loadCore();
 
 
 console.info("[MARL] Musical Atlas Relational Lattice v1.6 booted");
@@ -823,7 +816,7 @@ function transportSnapshot(){
     noBellRate:+$("#noBellRate").value,bellThreshold:+$("#bellThreshold").value,growth:+$("#growth").value};
 }
 function makeMLD(){
-  return {format:MLD_FORMAT,version:MLD_VERSION,createdAt:new Date().toISOString(),appVersion:"2.1.4",
+  return {format:MLD_FORMAT,version:MLD_VERSION,createdAt:new Date().toISOString(),appVersion:"2.1.5",
     title:"Untitled Lattice",geometry:geometrySnapshot(),transport:transportSnapshot(),
     references:{A:cloneData(referenceA),B:cloneData(referenceB),
       presets:referencePresets.map(p=>({id:p.id,name:p.name,A:cloneData(p.A),B:cloneData(p.B),armed:!!p.armed}))},
@@ -859,7 +852,7 @@ function applyMLD(d){
   log(`MLD · loaded ${d.title||"untitled"}`);
 }
 function makePMS(){
-  return {format:PMS_FORMAT,version:PMS_VERSION,createdAt:new Date().toISOString(),appVersion:"2.1.4",
+  return {format:PMS_FORMAT,version:PMS_VERSION,createdAt:new Date().toISOString(),appVersion:"2.1.5",
     title:"Persistent Merc Songbook",mercs:savedTrains.map(t=>({name:t.name,pathName:t.pathName||null,events:[...(t.events||[])],source:t.source||"ocarina",
       trailA:t.trailA?cloneData(t.trailA):null,trailB:t.trailB?cloneData(t.trailB):null}))};
 }
