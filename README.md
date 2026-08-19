@@ -179,3 +179,11 @@ The v2.1.0 engine is unchanged. Geometry and Perform now expose editable A/B ref
 - Incidence, Ocarina and Perform share canonical CLICK/DING/NO BELL event generators.
 - Ocarina CLICK/DING/NO BELL button identities normalized.
 - Event-train highlighting is observer-only and transport playback is repaired.
+
+
+## v2.1.4 — Geometry interaction only
+- No changes to Incidence, Ocarina, or Perform behavior.
+- A and B anchors are small direct drag targets.
+- Everywhere else on Geometry: left click/drag controls yellow/A shell; right click/drag controls blue/B shell.
+- Clicking or dragging Geometry never manually plays an event sound.
+- Geometry audio remains generated only by automatic registration/scan events.

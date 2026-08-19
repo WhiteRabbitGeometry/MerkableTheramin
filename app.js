@@ -1,13 +1,13 @@
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const on=(selector,event,handler)=>{
   const el=$(selector);
-  if(!el){ console.warn(`[MARL v2.1.3] missing optional control ${selector}`); return null; }
+  if(!el){ console.warn(`[MARL v2.1.4] missing optional control ${selector}`); return null; }
   el.addEventListener(event,handler);
   return el;
 };
 const setText=(selector,text)=>{ const el=$(selector); if(el) el.textContent=text; };
 window.addEventListener("error",e=>{
-  console.error("[MARL v2.1.3 runtime]", e.error || e.message);
+  console.error("[MARL v2.1.4 runtime]", e.error || e.message);
   const hint=$("#audioHint");
   if(hint) hint.textContent="A module reported an error; basic view navigation remains available.";
 });
@@ -25,7 +25,7 @@ let geometryTraces=[];
 
 
 function loadCore(){
-  CORE={version:"2.1.3",canonicalCore:"ROCK · PETRIFIED"};
+  CORE={version:"2.1.4",canonicalCore:"ROCK · PETRIFIED"};
   const rev=$("#coreRevision"); if(rev) rev.textContent=CORE.canonicalCore;
 }
 function flashEvent(type){
@@ -541,7 +541,7 @@ function referenceHit(canvas,e){
   const b={x:referenceB.x*w,y:referenceB.y*h};
   const da=Math.hypot(p.x-a.x,p.y-a.y);
   const db=Math.hypot(p.x-b.x,p.y-b.y);
-  const radius=Math.max(14,Math.min(w,h)*.035);
+  const radius=Math.max(10,Math.min(w,h)*.022);
   if(da<=radius && da<=db)return "A";
   if(db<=radius)return "B";
   return null;
@@ -565,13 +565,22 @@ function setSpecificReference(canvas,e,which){
       return;
     }
 
-    const dx=e.clientX-lastPt.x,dy=e.clientY-lastPt.y;
+    const dx=e.clientX-lastPt.x;
+    const dy=e.clientY-lastPt.y;
     moved+=Math.hypot(dx,dy);
     lastPt={x:e.clientX,y:e.clientY};
 
-    if(mode==="refA"){setSpecificReference(c,e,"A");return}
-    if(mode==="refB"){setSpecificReference(c,e,"B");return}
+    // The A/B anchors are the ONLY special hit targets.
+    if(mode==="refA"){
+      setSpecificReference(c,e,"A");
+      return;
+    }
+    if(mode==="refB"){
+      setSpecificReference(c,e,"B");
+      return;
+    }
 
+    // Everywhere else, mouse button chooses shell.
     if(mode==="shellA"){
       aA+=dx*.006;
       phase+=dy*.004;
@@ -584,10 +593,15 @@ function setSpecificReference(canvas,e,which){
   c.addEventListener("pointerdown",e=>{
     if(e.button!==0 && e.button!==2)return;
     e.preventDefault();
-    drag=true;moved=0;lastPt={x:e.clientX,y:e.clientY};
+
+    drag=true;
+    moved=0;
+    lastPt={x:e.clientX,y:e.clientY};
     c.setPointerCapture?.(e.pointerId);
 
     const hit=referenceHit(c,e);
+
+    // Anchors override button identity ONLY when directly grabbed.
     if(hit==="A")mode="refA";
     else if(hit==="B")mode="refB";
     else mode=e.button===2?"shellB":"shellA";
@@ -595,8 +609,10 @@ function setSpecificReference(canvas,e,which){
     c.style.cursor="grabbing";
   });
 
-  const endPointer=()=>{
+  const finish=()=>{
     if(!drag)return;
+
+    // Simple click away from anchors = shell nudge.
     if(moved<=4){
       if(mode==="shellA"){
         aA+=Math.PI/12;
@@ -606,11 +622,15 @@ function setSpecificReference(canvas,e,which){
         log("GEOMETRY · B/blue shell +15°");
       }
     }
-    drag=false;lastPt=null;mode=null;c.style.cursor="grab";
+
+    drag=false;
+    lastPt=null;
+    mode=null;
+    c.style.cursor="crosshair";
   };
 
-  c.addEventListener("pointerup",endPointer);
-  c.addEventListener("pointercancel",endPointer);
+  c.addEventListener("pointerup",finish);
+  c.addEventListener("pointercancel",finish);
   c.addEventListener("contextmenu",e=>e.preventDefault());
 });
 $("#resetReferences").onclick=()=>{referenceA={x:.38,y:.5};referenceB={x:.62,y:.5};updateReadouts();syncReferenceInputs()};
@@ -803,7 +823,7 @@ function transportSnapshot(){
     noBellRate:+$("#noBellRate").value,bellThreshold:+$("#bellThreshold").value,growth:+$("#growth").value};
 }
 function makeMLD(){
-  return {format:MLD_FORMAT,version:MLD_VERSION,createdAt:new Date().toISOString(),appVersion:"2.1.3",
+  return {format:MLD_FORMAT,version:MLD_VERSION,createdAt:new Date().toISOString(),appVersion:"2.1.4",
     title:"Untitled Lattice",geometry:geometrySnapshot(),transport:transportSnapshot(),
     references:{A:cloneData(referenceA),B:cloneData(referenceB),
       presets:referencePresets.map(p=>({id:p.id,name:p.name,A:cloneData(p.A),B:cloneData(p.B),armed:!!p.armed}))},
@@ -839,7 +859,7 @@ function applyMLD(d){
   log(`MLD · loaded ${d.title||"untitled"}`);
 }
 function makePMS(){
-  return {format:PMS_FORMAT,version:PMS_VERSION,createdAt:new Date().toISOString(),appVersion:"2.1.3",
+  return {format:PMS_FORMAT,version:PMS_VERSION,createdAt:new Date().toISOString(),appVersion:"2.1.4",
     title:"Persistent Merc Songbook",mercs:savedTrains.map(t=>({name:t.name,pathName:t.pathName||null,events:[...(t.events||[])],source:t.source||"ocarina",
       trailA:t.trailA?cloneData(t.trailA):null,trailB:t.trailB?cloneData(t.trailB):null}))};
 }
