@@ -177,3 +177,5 @@ button[data-view].active {
 
 .octave-hint{margin:.35rem 0 .55rem;opacity:.75}
 #incidenceSvg,.instrument-grid .pad,#geoCanvas,#performGeoCanvas{user-select:none;-webkit-user-select:none}
+
+#geoCanvas,#performGeoCanvas{cursor:grab}
