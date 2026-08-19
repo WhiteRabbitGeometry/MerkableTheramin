@@ -171,3 +171,11 @@ The v2.1.0 engine is unchanged. Geometry and Perform now expose editable A/B ref
 - Geometry frame loop is fail-safe so one rendering exception cannot permanently freeze animation.
 - Auto-Sonify controls moving-geometry sound. Shared Reference Metronome mute controls armed saved metronomes independently.
 - Manual Bell pad remains locked; supporter unlock is reserved for a future payment-enabled release.
+
+
+## v2.1.3
+- A/B reference points are directly draggable on Geometry and Perform Geometry.
+- Off-point left click/drag controls yellow/A shell; right click/drag controls blue/B shell.
+- Incidence, Ocarina and Perform share canonical CLICK/DING/NO BELL event generators.
+- Ocarina CLICK/DING/NO BELL button identities normalized.
+- Event-train highlighting is observer-only and transport playback is repaired.
