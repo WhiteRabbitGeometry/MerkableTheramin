@@ -154,3 +154,20 @@ The v2.1.0 engine is unchanged. Geometry and Perform now expose editable A/B ref
 - Incidence remains interactive, including C₂ inspection Bell.
 - Geometry retains manual paused rotation and registration traces.
 - MLD / PMS / WAV / Rainbow Harmonium controls live inside Perform above Mercs.
+
+
+## v2.1.1 — public hotfix
+- Fixed Geometry animation/runtime failure caused by the `drawGeometry` Boolean parameter shadowing the browser `performance` API used by trace timing.
+- Restores automatic rotation, Speed A/B, Ripple, Scan Rate, Geometry Theremin rendering in Perform, and reference-metronome scanning.
+- Clicking incidence space that is not an A₄ node, C₅ gate, or C₂ bridge now produces an explicit NO BELL event and brief visual pulse.
+
+
+## v2.1.2 — interaction/runtime hotfix
+- Incidence and Ocarina: left click plays low octave; right click plays high octave.
+- Empty Incidence space explicitly plays NO BELL in low/high octave.
+- NO BELL redesigned as an audible thunk that survives laptop/phone speakers.
+- Geometry: left click nudges yellow/A shell 15°; right click nudges blue/B shell 15°.
+- Paused drag manually rotates geometry; running drag moves the reference.
+- Geometry frame loop is fail-safe so one rendering exception cannot permanently freeze animation.
+- Auto-Sonify controls moving-geometry sound. Shared Reference Metronome mute controls armed saved metronomes independently.
+- Manual Bell pad remains locked; supporter unlock is reserved for a future payment-enabled release.

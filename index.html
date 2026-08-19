@@ -7,7 +7,7 @@
   <title>Musical Atlas Relational Lattice · Atlas Relational Ocarina · Merkable Theramin</title>
   <meta name="description" content="Playable Atlas Lattice relational-geometry instrument.">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=2.1.0">
+  <link rel="stylesheet" href="styles.css?v=2.1.2">
   <!-- Statcounter code for Memerex Site Tracking Artifact -->
 <script type="text/javascript">
 var sc_project=13133102;
@@ -33,7 +33,7 @@ referrerPolicy="no-referrer-when-downgrade"></a></div></noscript>
   </div>
   <div class="statusline">
     <span class="status established">ROCK: PETRIFIED</span>
-    <span class="status">MODEL: v2.1.0</span>
+    <span class="status">MODEL: v2.1.2</span>
     <span class="status no-bell">BELL BRIDGE: NO BELL</span>
   </div>
 </header>
@@ -62,6 +62,7 @@ referrerPolicy="no-referrer-when-downgrade"></a></div></noscript>
       <span data-incidence-event="nobell">NO BELL</span>
       <span data-incidence-event="bell">BELL</span>
     </div>
+    <p class="caption octave-hint">Left click = low octave · Right click = high octave · Empty space = NO BELL</p>
     <svg id="incidenceSvg" viewBox="0 0 900 650" role="img" aria-label="Atlas Lattice 2D incidence model"></svg>
     <div class="legend">
       <span><i class="dot established-dot"></i>A₄ sector</span>
@@ -117,11 +118,12 @@ referrerPolicy="no-referrer-when-downgrade"></a></div></noscript>
   </section>
 
   <section id="ocarinaView" class="panel">
+    <p class="caption octave-hint">Left click = low octave · Right click = high octave</p>
     <div class="instrument-grid">
       <button class="pad click-pad" data-sound="click">CLICK</button>
       <button class="pad ding-pad" data-sound="ding">DING</button>
       <button class="pad no-bell-pad" data-sound="nobell">NO BELL</button>
-      <button class="pad bell-pad bell-locked locked-bell" id="bellStatusPad" disabled aria-disabled="true" title="Bell is threshold-generated and cannot be played directly">BELL<br><small>🔒 threshold only</small></button>
+      <button class="pad bell-pad bell-locked locked-bell" id="bellStatusPad" disabled aria-disabled="true" title="Bell is threshold-generated and cannot be played directly. Manual Bell pad is reserved for a future supporter unlock.">BELL<br><small>🔒 threshold only</small></button>
     </div>
 
     <div class="sequencer">
@@ -265,7 +267,7 @@ referrerPolicy="no-referrer-when-downgrade"></a></div></noscript>
 </main>
 
 <footer>
-  <span>Musical Atlas Relational Lattice · v2.1.0</span>
+  <span>Musical Atlas Relational Lattice · v2.1.2</span>
   <span id="coreRevision"></span><span class="format-status">MLD v1 · PMS v1 · WAV PCM</span>
 </footer>
 
@@ -295,6 +297,6 @@ referrerPolicy="no-referrer-when-downgrade"></a></div></noscript>
 })();
 </script>
 
-<script src="app.js?v=2.1.0"></script>
+<script src="app.js?v=2.1.2"></script>
 </body>
 </html>

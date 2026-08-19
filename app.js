@@ -1,13 +1,13 @@
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const on=(selector,event,handler)=>{
   const el=$(selector);
-  if(!el){ console.warn(`[MARL v2.1.0] missing optional control ${selector}`); return null; }
+  if(!el){ console.warn(`[MARL v2.1.2] missing optional control ${selector}`); return null; }
   el.addEventListener(event,handler);
   return el;
 };
 const setText=(selector,text)=>{ const el=$(selector); if(el) el.textContent=text; };
 window.addEventListener("error",e=>{
-  console.error("[MARL v2.1.0 runtime]", e.error || e.message);
+  console.error("[MARL v2.1.2 runtime]", e.error || e.message);
   const hint=$("#audioHint");
   if(hint) hint.textContent="A module reported an error; basic view navigation remains available.";
 });
@@ -25,7 +25,7 @@ let geometryTraces=[];
 
 
 function loadCore(){
-  CORE={version:"2.1.0",canonicalCore:"ROCK · PETRIFIED"};
+  CORE={version:"2.1.2",canonicalCore:"ROCK · PETRIFIED"};
   const rev=$("#coreRevision"); if(rev) rev.textContent=CORE.canonicalCore;
 }
 function flashEvent(type){
@@ -66,6 +66,21 @@ function tone(freq,t,dur=.35,gain=.16,type="sine",detune=0){
  g.gain.setValueAtTime(gain,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g).connect(masterGain);o.start(t);o.stop(t+dur);
 }
 
+
+const OCT_LOW=-12,OCT_HIGH=12;
+function octaveMul(semitones=0){return Math.pow(2,semitones/12)}
+function eventToken(type,octave=0){return octave===OCT_LOW?`${type}@low`:octave===OCT_HIGH?`${type}@high`:type}
+function eventInfo(token){
+  if(typeof token!=="string")return {type:"click",octave:0};
+  const [type,tag]=token.split("@");
+  return {type,octave:tag==="low"?OCT_LOW:tag==="high"?OCT_HIGH:0};
+}
+function eventLabel(token){
+  const {type,octave}=eventInfo(token);
+  const base=type==="nobell"?"NO BELL":type.toUpperCase();
+  return octave===OCT_LOW?`${base} ↓`:octave===OCT_HIGH?`${base} ↑`:base;
+}
+
 function busAllowed(bus){
   if(!masterAudible) return false;
   if(bus==="geometry" && !geometryBusOn) return false;
@@ -73,8 +88,20 @@ function busAllowed(bus){
   return true;
 }
 
-function click(t=audioCtx.currentTime){flashEvent("click");noiseBurst(t,.018,.18);tone(950,t,.035,.055,"square")}
-function noBell(t=audioCtx.currentTime){flashEvent("nobell");tone(92,t,.18,.08,"triangle");noiseBurst(t,.05,.06)}
+function click(t=audioCtx.currentTime,octave=0){
+  flashEvent("click");
+  const m=octaveMul(octave);
+  noiseBurst(t,.020,.19);
+  tone(760*m,t,.045,.065,"square");
+}
+function noBell(t=audioCtx.currentTime,octave=0){
+  flashEvent("nobell");
+  const m=octaveMul(octave);
+  // Audible wooden/thunk identity that survives small laptop/phone speakers.
+  tone(260*m,t,.16,.13,"triangle");
+  tone(185*m,t+.018,.13,.075,"sine");
+  noiseBurst(t,.042,.09);
+}
 
 const PENTA=[0,2,4,7,9];
 function pentatonicFromRef(ref,root=220){
@@ -95,63 +122,78 @@ function relationState(scoreA,scoreB){
  const detune=harmonic?0:Math.min(42,8+phase*34+diff*18);
  return {harmonic,detune,phase,diff};
 }
-function dingPair(pA,pB,rel,t=audioCtx.currentTime,bus="merc"){
+function dingPair(pA,pB,rel,t=audioCtx.currentTime,bus="merc",octave=0){
+ const om=octaveMul(octave);
  if(!busAllowed(bus)) return;
  flashEvent("ding");
  if(voiceAOn){
-   tone(pA.freq,t,.72,.10,"sine",0);
-   tone(pA.freq*2,t,.32,.025,"sine",0);
+   tone(pA.freq*om,t,.72,.10,"sine",0);
+   tone(pA.freq*2*om,t,.32,.025,"sine",0);
  }
  if(voiceBOn){
-   tone(pB.freq,t,.72,.09,"sine",rel.harmonic?0:(referenceB.x>=referenceA.x?rel.detune:-rel.detune));
-   tone(pB.freq*2,t,.28,.018,"sine",rel.harmonic?0:(referenceB.x>=referenceA.x?rel.detune:-rel.detune));
+   tone(pB.freq*om,t,.72,.09,"sine",rel.harmonic?0:(referenceB.x>=referenceA.x?rel.detune:-rel.detune));
+   tone(pB.freq*2*om,t,.28,.018,"sine",rel.harmonic?0:(referenceB.x>=referenceA.x?rel.detune:-rel.detune));
  }
 }
-function bellChord(pA,pB,rel,t=audioCtx.currentTime,bus="merc"){
+function bellChord(pA,pB,rel,t=audioCtx.currentTime,bus="merc",octave=0){
+ const om=octaveMul(octave);
  if(!busAllowed(bus)) return;
  flashEvent("bell");
  if(voiceAOn){
-   tone(pA.freq,t,2.4,.10,"sine",0);
-   tone(pA.freq*2,t,1.9,.05,"sine",0);
-   tone(pA.freq*2.72,t,1.45,.03,"sine",0);
+   tone(pA.freq*om,t,2.4,.10,"sine",0);
+   tone(pA.freq*2*om,t,1.9,.05,"sine",0);
+   tone(pA.freq*2.72*om,t,1.45,.03,"sine",0);
  }
  if(voiceBOn){
    const d=rel.harmonic?0:(referenceB.x>=referenceA.x?rel.detune:-rel.detune);
-   tone(pB.freq,t,2.4,.09,"sine",d);
-   tone(pB.freq*2,t,1.9,.045,"sine",d);
-   tone(pB.freq*2.72,t,1.45,.028,"sine",d);
+   tone(pB.freq*om,t,2.4,.09,"sine",d);
+   tone(pB.freq*2*om,t,1.9,.045,"sine",d);
+   tone(pB.freq*2.72*om,t,1.45,.028,"sine",d);
  }
 }
 
 function threshold(){return +$("#bellThreshold").value}
 function growth(){return +$("#growth").value}
-function contribution(type,ordinal){return type==="click"?.55*Math.pow(growth(),ordinal):type==="ding"?.80*Math.pow(growth(),ordinal):0}
-function durationFor(type){const beat=60/(+$("#tempo").value||108),rate=type==="click"?+$("#clickRate").value:type==="ding"?+$("#dingRate").value:+$("#noBellRate").value;return beat/Math.max(.01,rate)}
+function contribution(token,ordinal){
+ const type=eventInfo(token).type;
+ return type==="click"?.55*Math.pow(growth(),ordinal):type==="ding"?.80*Math.pow(growth(),ordinal):0
+}
+function durationFor(token){
+ const type=eventInfo(token).type;
+ const beat=60/(+$("#tempo").value||108),rate=type==="click"?+$("#clickRate").value:type==="ding"?+$("#dingRate").value:+$("#noBellRate").value;
+ return beat/Math.max(.01,rate)
+}
 function currentHarmony(){
  const pA=pentatonicFromRef(referenceA),pB=pentatonicFromRef(referenceB);
  const rel=relationState(lastScoreA||0,lastScoreB||0);
  return {pA,pB,rel};
 }
-async function ringBell(source="closure",bus="merc"){
- await ensureAudio();const {pA,pB,rel}=currentHarmony();bellChord(pA,pB,rel,audioCtx.currentTime,bus);
+async function ringBell(source="closure",bus="merc",octave=0){
+ await ensureAudio();const {pA,pB,rel}=currentHarmony();bellChord(pA,pB,rel,audioCtx.currentTime,bus,octave);
  $("#bellStatusPad").classList.add("active");setTimeout(()=>$("#bellStatusPad").classList.remove("active"),420);log(`BELL · ${source} · ${intervalLabel(pA,pB)}`);
 }
-async function soundEvent(type,source="manual",record=true,bus="merc"){
+async function soundEvent(type,source="manual",record=true,bus="merc",octave=0){
  await ensureAudio();
- if(type==="click")click();
- else if(type==="ding"){const {pA,pB,rel}=currentHarmony();dingPair(pA,pB,rel,audioCtx.currentTime,bus)}
- else if(type==="nobell")noBell();
- if(record){eventTrain.push(type);renderTrain()}
- log(`${type.toUpperCase()} · ${source}`);
+ if(type==="click")click(audioCtx.currentTime,octave);
+ else if(type==="ding"){const {pA,pB,rel}=currentHarmony();dingPair(pA,pB,rel,audioCtx.currentTime,bus,octave)}
+ else if(type==="nobell")noBell(audioCtx.currentTime,octave);
+ if(record){eventTrain.push(eventToken(type,octave));renderTrain()}
+ log(`${eventLabel(eventToken(type,octave))} · ${source}`);
 }
-async function addEvent(type){
+async function addEvent(type,octave=0){
  if(type==="bell")return;
- if(type==="nobell"){liveEnergy=0;await soundEvent(type,"manual",true,"merc");return}
- liveEnergy+=contribution(type,eventTrain.length);await soundEvent(type,"manual",true,"merc");
+ if(type==="nobell"){liveEnergy=0;await soundEvent(type,"manual",true,"merc",octave);return}
+ liveEnergy+=contribution(type,eventTrain.length);await soundEvent(type,"manual",true,"merc",octave);
  if(liveEnergy>=threshold()){await ringBell("live threshold");liveEnergy=0}
 }
-$$(".pad[data-sound]").forEach(b=>b.addEventListener("click",()=>addEvent(b.dataset.sound)));
-$$("[data-perf-sound]").forEach(b=>b.addEventListener("click",()=>{if($("#armPads").checked)soundEvent(b.dataset.perfSound,"performance pad",false,"merc")}));
+$$(".pad[data-sound]").forEach(b=>{
+ b.addEventListener("click",e=>{e.preventDefault();addEvent(b.dataset.sound,OCT_LOW)});
+ b.addEventListener("contextmenu",e=>{e.preventDefault();addEvent(b.dataset.sound,OCT_HIGH)});
+});
+$$("[data-perf-sound]").forEach(b=>{
+ b.addEventListener("click",e=>{e.preventDefault();if($("#armPads").checked)soundEvent(b.dataset.perfSound,"performance pad",false,"merc",OCT_LOW)});
+ b.addEventListener("contextmenu",e=>{e.preventDefault();if($("#armPads").checked)soundEvent(b.dataset.perfSound,"performance pad",false,"merc",OCT_HIGH)});
+});
 
 
 function syncVoiceButtons(){}
@@ -162,7 +204,7 @@ function renderTrain(){
  if(!eventTrain.length){box.textContent="— empty —";return}
  eventTrain.forEach((type,i)=>{
    const chip=document.createElement("span");chip.className=`event-chip ${type}`;chip.dataset.trainIndex=i;
-   chip.innerHTML=`<span>${type==="nobell"?"NO BELL":type}</span><button>←</button><button>→</button><button>×</button>`;
+   chip.innerHTML=`<span>${eventLabel(type)}</span><button>←</button><button>→</button><button>×</button>`;
    const [l,r,x]=chip.querySelectorAll("button");
    l.onclick=()=>{if(i>0){[eventTrain[i-1],eventTrain[i]]=[eventTrain[i],eventTrain[i-1]];renderTrain()}};
    r.onclick=()=>{if(i<eventTrain.length-1){[eventTrain[i+1],eventTrain[i]]=[eventTrain[i],eventTrain[i+1]];renderTrain()}};
@@ -187,7 +229,7 @@ function renderSaved(){
  savedTrains.forEach((tr,i)=>{
   if(!tr.pathName && (tr.trailA||tr.trailB))tr.pathName=`${tr.name} Path`;
   const row=document.createElement("div");row.className="saved-train";
-  const ev=tr.events.map(x=>x==="nobell"?"NO BELL":x.toUpperCase()).join(" · ");
+  const ev=tr.events.map(eventLabel).join(" · ");
   const path=(tr.trailA||tr.trailB)?`<div><small>Path: <span class="path-name" data-rename-path="${i}">${tr.pathName}</span></small></div>`:"";
   row.innerHTML=`<div><strong class="merc-name" data-rename-merc="${i}">${tr.name}</strong><br><code>${ev}</code>${path}</div>
   <div class="saved-actions"><button>Load</button><button>Duplicate</button><button>Delete</button></div>`;
@@ -214,13 +256,14 @@ async function playTrain(events,token,cycle=0,kind="transport"){
  let e=0,ord=0;if(!events.length)return false;
  for(let i=0;i<events.length;i++){
   const valid=kind==="transport"?token===transportToken:token===performanceToken;if(!valid)return false;
-  const type=events[i];if(kind==="transport")highlightTrainStep(i);await ensureAudio();
-  if(type==="click"){click();e+=contribution(type,ord++)}
-  else if(type==="ding"){const h=currentHarmony();dingPair(h.pA,h.pB,h.rel,audioCtx.currentTime,"merc");e+=contribution(type,ord++)}
-  else{noBell();e=0;ord=0}
+  const token=events[i],info=eventInfo(token),type=info.type,octave=info.octave;
+  if(kind==="transport")highlightTrainStep(i);await ensureAudio();
+  if(type==="click"){click(audioCtx.currentTime,octave);e+=contribution(token,ord++)}
+  else if(type==="ding"){const h=currentHarmony();dingPair(h.pA,h.pB,h.rel,audioCtx.currentTime,"merc",octave);e+=contribution(token,ord++)}
+  else{noBell(audioCtx.currentTime,octave);e=0;ord=0}
   if(e>=threshold()){await sleep(65,token,kind);const still=kind==="transport"?token===transportToken:token===performanceToken;if(!still)return false;await ringBell(`${kind} threshold`,"merc");e=0;ord=0}
   if(kind==="transport")$("#loopStatus").textContent=`Cycle ${cycle+1} · energy ${e.toFixed(2)} / ${threshold().toFixed(1)}`;
-  if(!(await sleep(durationFor(type)*1000,token,kind)))return false;
+  if(!(await sleep(durationFor(token)*1000,token,kind)))return false;
  }
  if(kind==="transport")clearTrainHighlight();return true;
 }
@@ -264,11 +307,49 @@ function pulseIncidence(svg,node){
  setTimeout(()=>targets.forEach(x=>x.classList.remove("incidence-active")),520);
 }
 function wireIncidence(svg,perform=false){
- svg.querySelectorAll(".inc-a4").forEach(n=>n.onclick=()=>{if(!perform||$("#armIncidence").checked){pulseIncidence(svg,n);soundEvent("click",`A₄ sector ${n.dataset.i}`,!perform)}});
- svg.querySelectorAll(".inc-c5").forEach(n=>n.onclick=()=>{if(!perform||$("#armIncidence").checked){pulseIncidence(svg,n);soundEvent("ding",`C₅ gate ${n.dataset.i}`,!perform)}});
+ const enabled=()=>!perform||$("#armIncidence").checked;
+ const record=!perform;
+
+ const bindPair=(node,type,source)=>{
+   node.addEventListener("click",e=>{
+     e.preventDefault();e.stopPropagation();
+     if(enabled()){pulseIncidence(svg,node);soundEvent(type,source,record,"merc",OCT_LOW)}
+   });
+   node.addEventListener("contextmenu",e=>{
+     e.preventDefault();e.stopPropagation();
+     if(enabled()){pulseIncidence(svg,node);soundEvent(type,source,record,"merc",OCT_HIGH)}
+   });
+ };
+
+ svg.querySelectorAll(".inc-a4").forEach(n=>bindPair(n,"click",`A₄ sector ${n.dataset.i}`));
+ svg.querySelectorAll(".inc-c5").forEach(n=>bindPair(n,"ding",`C₅ gate ${n.dataset.i}`));
+
  const bridge=svg.querySelector(".inc-c2");
- const bell=async()=>{if(!perform||$("#armIncidence").checked){pulseIncidence(svg,bridge);await ringBell("C₂ incidence bridge inspection","merc")}};
- if(bridge){bridge.onclick=bell;bridge.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();bell()}}}
+ if(bridge){
+   bridge.addEventListener("click",async e=>{
+     e.preventDefault();e.stopPropagation();
+     if(enabled()){pulseIncidence(svg,bridge);await ringBell("C₂ incidence bridge inspection","merc",OCT_LOW)}
+   });
+   bridge.addEventListener("contextmenu",async e=>{
+     e.preventDefault();e.stopPropagation();
+     if(enabled()){pulseIncidence(svg,bridge);await ringBell("C₂ incidence bridge inspection","merc",OCT_HIGH)}
+   });
+   bridge.onkeydown=e=>{
+     if(e.key==="Enter"||e.key===" "){e.preventDefault();ringBell("C₂ incidence bridge inspection","merc",OCT_LOW)}
+   };
+ }
+
+ const voidEvent=(e,octave)=>{
+   if(!enabled())return;
+   if(e.target.closest?.(".inc-a4,.inc-c5,.inc-c2"))return;
+   e.preventDefault();
+   soundEvent("nobell","incidence void / no bridge",record,"merc",octave);
+   svg.classList.add("no-bell-pulse");
+   setTimeout(()=>svg.classList.remove("no-bell-pulse"),240);
+   log(`INCIDENCE ${eventLabel(eventToken("nobell",octave))} · no active node or bridge`);
+ };
+ svg.addEventListener("click",e=>voidEvent(e,OCT_LOW));
+ svg.addEventListener("contextmenu",e=>voidEvent(e,OCT_HIGH));
 }
 $("#incidenceSvg").innerHTML=incidenceMarkup();wireIncidence($("#incidenceSvg"),false);
 function drawPerformIncidence(){$("#performIncidenceSvg").innerHTML=incidenceMarkup();wireIncidence($("#performIncidenceSvg"),true)}
@@ -277,9 +358,9 @@ function drawPerformIncidence(){$("#performIncidenceSvg").innerHTML=incidenceMar
 const phi=(1+Math.sqrt(5))/2,inv=1/phi,V=[];[-1,1].forEach(a=>[-1,1].forEach(b=>[-1,1].forEach(c=>V.push([a,b,c]))));[-1,1].forEach(a=>[-1,1].forEach(b=>{V.push([0,a*inv,b*phi],[a*inv,b*phi,0],[a*phi,0,b*inv])}));
 let minD=Infinity;for(let i=0;i<V.length;i++)for(let j=i+1;j<V.length;j++){const d=Math.hypot(...V[i].map((x,k)=>x-V[j][k]));if(d>1e-6)minD=Math.min(minD,d)}
 const E=[];for(let i=0;i<V.length;i++)for(let j=i+1;j<V.length;j++){const d=Math.hypot(...V[i].map((x,k)=>x-V[j][k]));if(Math.abs(d-minD)<1e-5)E.push([i,j])}
-let aA=0,aB=0,last=performance.now(),phase=0,lastScoreA=0,lastScoreB=0;
+let aA=0,aB=0,last=0,phase=0,lastScoreA=0,lastScoreB=0;
 function proj(v,a,mirror,w,h,scale,rip){let[x,y,z]=v;if(mirror)x=-x;const ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(.53),sb=Math.sin(.53);let X=x*ca-z*sa,Z=x*sa+z*ca,Y=y*cb-Z*sb;Z=y*sb+Z*cb;const rr=1+rip*Math.sin(phase+Math.atan2(y,x)*5);X*=rr;Y*=rr;Z*=rr;const f=1/(4.6-Z*.34);return[w/2+X*scale*f,h/2-Y*scale*f,Z]}
-function drawGeometry(canvas,ctx,performance=false){
+function drawGeometry(canvas,ctx,performanceMode=false){
  const rip=+$("#ripple").value,w=canvas.width,h=canvas.height;ctx.clearRect(0,0,w,h);
  const P_B=V.map(v=>proj(v,aB,true,w,h,760,rip)),P_A=V.map(v=>proj(v,aA,false,w,h,700,rip));
  [[P_B,"#8ba7ff",.38,1.3],[P_A,"#d7b45c",.9,2.2]].forEach(([P,color,alpha,width])=>{
@@ -288,7 +369,7 @@ function drawGeometry(canvas,ctx,performance=false){
  if($("#showAxes").checked){ctx.save();ctx.translate(w/2,h/2);ctx.strokeStyle="rgba(242,240,234,.18)";for(let i=0;i<6;i++){const a=i*Math.PI/3;ctx.beginPath();ctx.moveTo(-245*Math.cos(a),-245*Math.sin(a));ctx.lineTo(245*Math.cos(a),245*Math.sin(a));ctx.stroke()}ctx.restore()}
  function drawRef(ref,color,label,trail){
    const x=ref.x*w,y=ref.y*h;
-   if(performance&&$("#showTrails").checked&&trail.length>1){ctx.beginPath();trail.forEach((p,i)=>i?ctx.lineTo(p.x*w,p.y*h):ctx.moveTo(p.x*w,p.y*h));ctx.strokeStyle=color;ctx.globalAlpha=.24;ctx.lineWidth=2;ctx.stroke();ctx.globalAlpha=1}
+   if(performanceMode&&$("#showTrails").checked&&trail.length>1){ctx.beginPath();trail.forEach((p,i)=>i?ctx.lineTo(p.x*w,p.y*h):ctx.moveTo(p.x*w,p.y*h));ctx.strokeStyle=color;ctx.globalAlpha=.24;ctx.lineWidth=2;ctx.stroke();ctx.globalAlpha=1}
    ctx.beginPath();ctx.arc(x,y,12,0,Math.PI*2);ctx.fillStyle="rgba(9,9,12,.75)";ctx.fill();ctx.strokeStyle=color;ctx.lineWidth=3;ctx.stroke();ctx.fillStyle=color;ctx.font="14px ui-monospace";ctx.fillText(label,x+16,y-12);
  }
  drawRef(referenceA,"#d7b45c","A",captureTrailA);drawRef(referenceB,"#8ba7ff","B",captureTrailB);
@@ -305,7 +386,7 @@ function drawGeometry(canvas,ctx,performance=false){
 
  const nearest=(P,ref)=>{const rx=ref.x*w,ry=ref.y*h;let n=Infinity,best=null;P.forEach(p=>{const d=Math.hypot(p[0]-rx,p[1]-ry);if(d<n){n=d;best=p}});return {score:Math.max(0,1-n/115),point:best}};
  const na=nearest(P_A,referenceA),nb=nearest(P_B,referenceB);
- const now=performance.now();
+ const now=globalThis.performance.now();
  geometryTraces=geometryTraces.filter(t=>now-t.time<t.life);
  geometryTraces.forEach(t=>{
    const alpha=(1-(now-t.time)/t.life)*.72;
@@ -438,21 +519,36 @@ function setReference(canvas,e){
  syncReferenceInputs();
 }
 [$("#geoCanvas"),$("#performGeoCanvas")].forEach(c=>{
- let drag=false,lastPt=null,mode="reference";
+ let drag=false,lastPt=null,mode="reference",moved=0;
  c.onpointerdown=e=>{
-   drag=true;lastPt={x:e.clientX,y:e.clientY};c.setPointerCapture(e.pointerId);
+   if(e.button!==0)return;
+   drag=true;moved=0;lastPt={x:e.clientX,y:e.clientY};c.setPointerCapture?.(e.pointerId);
    mode=$("#autoScan").checked?"reference":"rotate";
-   if(mode==="reference")setReference(c,e);
  };
  c.onpointermove=e=>{
    if(!drag)return;
-   if(mode==="reference")setReference(c,e);
-   else{
-     const dx=e.clientX-lastPt.x,dy=e.clientY-lastPt.y;lastPt={x:e.clientX,y:e.clientY};
-     aA+=dx*.006;aB-=dx*.004+dy*.004;phase+=dy*.006;
+   const dx=e.clientX-lastPt.x,dy=e.clientY-lastPt.y;
+   moved+=Math.hypot(dx,dy);lastPt={x:e.clientX,y:e.clientY};
+   if(mode==="reference"&&moved>4)setReference(c,e);
+   else if(mode==="rotate"){
+     aA+=dx*.006;
+     aB-=dx*.004+dy*.004;
+     phase+=dy*.006;
    }
  };
- c.onpointerup=c.onpointercancel=()=>{drag=false;lastPt=null};
+ c.onpointerup=e=>{
+   if(drag&&moved<=4){
+     aA+=Math.PI/12; // left click = yellow/A shell nudge
+     log("GEOMETRY · A/yellow shell +15°");
+   }
+   drag=false;lastPt=null;
+ };
+ c.onpointercancel=()=>{drag=false;lastPt=null};
+ c.addEventListener("contextmenu",e=>{
+   e.preventDefault();
+   aB+=Math.PI/12; // right click = blue/B shell nudge
+   log("GEOMETRY · B/blue shell +15°");
+ });
 });
 $("#resetReferences").onclick=()=>{referenceA={x:.38,y:.5};referenceB={x:.62,y:.5};updateReadouts();syncReferenceInputs()};
 
@@ -482,10 +578,10 @@ async function maybeScanEvent(now,performanceVisible){
    const inGeometry=$("#geometryView").classList.contains("active");
    const inPerform=$("#performView").classList.contains("active")&&$("#armGeometry").checked;
    if(!(inGeometry||inPerform)||!geometryBusOn)return;
-   if(cls==="click"){if(sonify&&referenceMetronomeAudible)click();scanEnergy+=.55;geometryTraces.push({kind:"click",time:performance.now(),life:1400})}
-   else{const h=currentHarmony();if(sonify&&referenceMetronomeAudible)dingPair(h.pA,h.pB,h.rel,audioCtx.currentTime,"geometry");scanEnergy+=.85;geometryTraces.push({kind:"ding",time:performance.now(),life:2200})}
+   if(cls==="click"){if(sonify)click();scanEnergy+=.55;geometryTraces.push({kind:"click",time:globalThis.performance.now(),life:1400})}
+   else{const h=currentHarmony();if(sonify)dingPair(h.pA,h.pB,h.rel,audioCtx.currentTime,"geometry");scanEnergy+=.85;geometryTraces.push({kind:"ding",time:globalThis.performance.now(),life:2200})}
    if(inPerform&&captureActive){captureEvents.push(cls);renderCapturePath()}
-   if(scanEnergy>=threshold()){if(sonify&&referenceMetronomeAudible)await ringBell("geometry closure","geometry");geometryTraces.push({kind:"bell",time:performance.now(),life:3200});scanEnergy=0;if(inPerform&&captureActive){captureEvents.push("bell");renderCapturePath()}}
+   if(scanEnergy>=threshold()){if(sonify)await ringBell("geometry closure","geometry");geometryTraces.push({kind:"bell",time:globalThis.performance.now(),life:3200});scanEnergy=0;if(inPerform&&captureActive){captureEvents.push("bell");renderCapturePath()}}
  }
 }
 function renderCapturePath(){
@@ -495,7 +591,7 @@ function renderCapturePath(){
 
 
 async function maybeScanSavedReferences(now){
-  if(!$("#sonifyScan").checked)return;
+  if(!referenceMetronomeAudible)return;
   if(!audioUnlocked||!geometryBusOn)return;
   const rate=+$("#scanRate").value;
   const inGeometry=$("#geometryView").classList.contains("active");
@@ -531,10 +627,27 @@ async function maybeScanSavedReferences(now){
 }
 
 function frame(now){
- const dt=(now-last)/1000;last=now;if($("#autoScan").checked){aA+=dt*+$("#speedA").value;aB+=dt*+$("#speedB").value;phase+=dt*.8}
- const g=drawGeometry($("#geoCanvas"),$("#geoCanvas").getContext("2d"),false);
- const p=drawGeometry($("#performGeoCanvas"),$("#performGeoCanvas").getContext("2d"),true);
- lastScoreA=g.scoreA;lastScoreB=g.scoreB;updateReadouts();maybeScanEvent(now);maybeScanSavedReferences(now);requestAnimationFrame(frame)
+ try{
+   const dt=last?Math.min(.075,Math.max(0,(now-last)/1000)):0;
+   last=now;
+   if($("#autoScan").checked){
+     aA+=dt*+$("#speedA").value;
+     aB+=dt*+$("#speedB").value;
+     phase+=dt*.8;
+   }
+   const gc=$("#geoCanvas"),pc=$("#performGeoCanvas");
+   const g=drawGeometry(gc,gc.getContext("2d"),false);
+   drawGeometry(pc,pc.getContext("2d"),true);
+   lastScoreA=g.scoreA;lastScoreB=g.scoreB;
+   updateReadouts();
+   maybeScanEvent(now);
+   maybeScanSavedReferences(now);
+ }catch(err){
+   console.error("[MARL geometry frame]",err);
+   const hint=$("#audioHint");
+   if(hint)hint.textContent="Geometry recovered from a frame error; see console for detail.";
+ }
+ requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
@@ -627,7 +740,7 @@ function transportSnapshot(){
     noBellRate:+$("#noBellRate").value,bellThreshold:+$("#bellThreshold").value,growth:+$("#growth").value};
 }
 function makeMLD(){
-  return {format:MLD_FORMAT,version:MLD_VERSION,createdAt:new Date().toISOString(),appVersion:"2.1.0",
+  return {format:MLD_FORMAT,version:MLD_VERSION,createdAt:new Date().toISOString(),appVersion:"2.1.2",
     title:"Untitled Lattice",geometry:geometrySnapshot(),transport:transportSnapshot(),
     references:{A:cloneData(referenceA),B:cloneData(referenceB),
       presets:referencePresets.map(p=>({id:p.id,name:p.name,A:cloneData(p.A),B:cloneData(p.B),armed:!!p.armed}))},
@@ -663,7 +776,7 @@ function applyMLD(d){
   log(`MLD · loaded ${d.title||"untitled"}`);
 }
 function makePMS(){
-  return {format:PMS_FORMAT,version:PMS_VERSION,createdAt:new Date().toISOString(),appVersion:"2.1.0",
+  return {format:PMS_FORMAT,version:PMS_VERSION,createdAt:new Date().toISOString(),appVersion:"2.1.2",
     title:"Persistent Merc Songbook",mercs:savedTrains.map(t=>({name:t.name,pathName:t.pathName||null,events:[...(t.events||[])],source:t.source||"ocarina",
       trailA:t.trailA?cloneData(t.trailA):null,trailB:t.trailB?cloneData(t.trailB):null}))};
 }
@@ -685,7 +798,7 @@ on("#openPMS","change",async ev=>{const f=ev.target.files?.[0];if(!f)return;try{
 // WAV is an audio rendering only; MLD remains the reconstructible source.
 function wavRender(events){
   const sr=44100,beat=60/(+$("#tempo").value||108);
-  const er=e=>e==="click"?+$("#clickRate").value:e==="ding"?+$("#dingRate").value:+$("#noBellRate").value;
+  const er=e=>{const t=eventInfo(e).type;return t==="click"?+$("#clickRate").value:t==="ding"?+$("#dingRate").value:+$("#noBellRate").value};
   const dur=e=>beat/Math.max(.01,er(e)||1);
   const total=Math.max(.8,events.reduce((s,e)=>s+dur(e),0)+.8), n=Math.ceil(total*sr), samples=new Float32Array(n);
   let at=0,energy=0,ord=0; const h=currentHarmony();
@@ -693,14 +806,15 @@ function wavRender(events){
     for(let i=i0;i<i1;i++){const t=(i-i0)/sr;samples[i]+=Math.sin(2*Math.PI*f*t)*gain*Math.exp(-4*t/Math.max(.02,len));}}
   function noise(start,len,gain){const i0=Math.floor(start*sr),i1=Math.min(n,i0+Math.floor(len*sr));
     for(let i=i0;i<i1;i++){const t=(i-i0)/sr;samples[i]+=(Math.random()*2-1)*gain*Math.max(0,1-t/len);}}
-  for(const e of events){
-    if(e==="click"){noise(at,.02,.16);sine(at,950,.04,.05);energy+=contribution("click",ord++)}
-    else if(e==="ding"){if(voiceAOn){sine(at,h.pA.freq,.72,.10);sine(at,h.pA.freq*2,.30,.025)}
-      if(voiceBOn)sine(at,h.pB.freq,.72,.09,h.rel.harmonic?0:(referenceB.x>=referenceA.x?h.rel.detune:-h.rel.detune));energy+=contribution("ding",ord++)}
-    else{sine(at,92,.18,.07);noise(at,.05,.05);energy=0;ord=0}
+  for(const token of events){
+    const info=eventInfo(token),e=info.type,om=octaveMul(info.octave);
+    if(e==="click"){noise(at,.02,.16);sine(at,760*om,.04,.06);energy+=contribution(token,ord++)}
+    else if(e==="ding"){if(voiceAOn){sine(at,h.pA.freq*om,.72,.10);sine(at,h.pA.freq*2*om,.30,.025)}
+      if(voiceBOn)sine(at,h.pB.freq*om,.72,.09,h.rel.harmonic?0:(referenceB.x>=referenceA.x?h.rel.detune:-h.rel.detune));energy+=contribution(token,ord++)}
+    else{sine(at,260*om,.16,.13);sine(at,185*om,.13,.075);noise(at,.05,.07);energy=0;ord=0}
     if(energy>=threshold()){const bt=at+.06;if(voiceAOn){sine(bt,h.pA.freq,1.8,.11);sine(bt,h.pA.freq*2,1.2,.05)}
       if(voiceBOn)sine(bt,h.pB.freq,1.8,.09,h.rel.harmonic?0:(referenceB.x>=referenceA.x?h.rel.detune:-h.rel.detune));energy=0;ord=0}
-    at+=dur(e);
+    at+=dur(token);
   }
   let peak=0;for(const x of samples)peak=Math.max(peak,Math.abs(x));if(peak>.98){const s=.98/peak;for(let i=0;i<n;i++)samples[i]*=s}
   const b=new ArrayBuffer(44+n*2),v=new DataView(b),ws=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};

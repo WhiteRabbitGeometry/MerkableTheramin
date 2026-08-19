@@ -170,3 +170,10 @@ button[data-view].active {
 #geoCanvas,#performGeoCanvas{touch-action:none}
 @media(max-width:900px){.perform-persistence{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.perform-persistence{grid-template-columns:1fr}}
+
+#incidenceSvg.no-bell-pulse,#performIncidenceSvg.no-bell-pulse{
+  filter:drop-shadow(0 0 5px rgba(194,109,104,.55));
+}
+
+.octave-hint{margin:.35rem 0 .55rem;opacity:.75}
+#incidenceSvg,.instrument-grid .pad,#geoCanvas,#performGeoCanvas{user-select:none;-webkit-user-select:none}
